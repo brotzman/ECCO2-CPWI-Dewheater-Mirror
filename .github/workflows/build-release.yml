@@ -1,0 +1,190 @@
+name: Build, test and package
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: Publish or update a GitHub Release after all tests pass
+        type: boolean
+        required: true
+        default: false
+      release_tag:
+        description: Release tag; must be v1.0.1
+        type: string
+        required: true
+        default: v1.0.1
+
+permissions:
+  contents: read
+
+env:
+  PRODUCT_VERSION: 1.0.1
+  GO_VERSION: 1.26.5
+  WIX_VERSION: 5.0.2
+
+jobs:
+  go-tests:
+    name: Go tests and race detector
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - run: go test -race ./...
+      - run: go vet ./...
+      - run: bash -n ./build-cross.sh
+
+  build:
+    name: Build Windows x64 and installers
+    runs-on: windows-2022
+    timeout-minutes: 20
+    needs: go-tests
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - name: Initialize build diagnostics
+        shell: powershell
+        run: New-Item -ItemType Directory -Force -Path artifacts\test-logs | Out-Null
+      - name: Validate repository
+        shell: powershell
+        run: .\scripts\Validate-Repository.ps1 *>&1 | Tee-Object -FilePath artifacts\test-logs\repository-validation.log
+      - name: Install pinned WiX tool
+        shell: powershell
+        run: |
+          dotnet tool install --global wix --version $env:WIX_VERSION
+          wix --version
+      - name: Build release artifacts
+        shell: powershell
+        run: |
+          try {
+            .\scripts\Build-Release.ps1 `
+              -ProductVersion $env:PRODUCT_VERSION `
+              -WixVersion $env:WIX_VERSION `
+              -WixExe 'wix.exe' *>&1 | Tee-Object -FilePath artifacts\test-logs\build-release.log
+          } catch {
+            $_ | Out-String | Add-Content -Path artifacts\test-logs\build-release.log
+            throw
+          }
+      - name: Stage installer-test input
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path ci-input\dist,ci-input\scripts | Out-Null
+          Copy-Item dist\* ci-input\dist -Recurse -Force
+          Copy-Item scripts\Test-GuiStartup.ps1,scripts\Test-Installer.ps1 ci-input\scripts -Force
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ECCO2-CPWI-Dew-Mirror-1.0.1-Build-Logs
+          path: artifacts/test-logs/**
+          if-no-files-found: warn
+          retention-days: 14
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ECCO2-CPWI-Dew-Mirror-1.0.1-Release
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ECCO2-CPWI-Dew-Mirror-1.0.1-Installer-Test-Input
+          path: ci-input/**
+          if-no-files-found: error
+          retention-days: 14
+
+  setup-test:
+    name: Test native Setup EXE on clean Windows runner
+    runs-on: windows-2022
+    timeout-minutes: 15
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: ECCO2-CPWI-Dew-Mirror-1.0.1-Installer-Test-Input
+          path: ci-input
+      - name: Test Setup installation, repair and removal
+        shell: powershell
+        run: .\ci-input\scripts\Test-Installer.ps1 -Mode Setup -ArtifactRoot .\ci-input -ProductVersion $env:PRODUCT_VERSION
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ECCO2-CPWI-Dew-Mirror-1.0.1-Setup-Test-Logs
+          path: ci-input/test-logs/**
+          if-no-files-found: warn
+          retention-days: 14
+
+  msi-test:
+    name: Test MSI on clean Windows runner
+    runs-on: windows-2022
+    timeout-minutes: 15
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: ECCO2-CPWI-Dew-Mirror-1.0.1-Installer-Test-Input
+          path: ci-input
+      - name: Test MSI installation, repair and removal
+        shell: powershell
+        run: .\ci-input\scripts\Test-Installer.ps1 -Mode Msi -ArtifactRoot .\ci-input -ProductVersion $env:PRODUCT_VERSION
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ECCO2-CPWI-Dew-Mirror-1.0.1-MSI-Test-Logs
+          path: ci-input/test-logs/**
+          if-no-files-found: warn
+          retention-days: 14
+
+  release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    needs: [build, setup-test, msi-test]
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish_release)
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: ECCO2-CPWI-Dew-Mirror-1.0.1-Release
+          path: release-files
+      - name: Resolve and validate release tag
+        id: tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            tag="${GITHUB_REF#refs/tags/}"
+          else
+            tag='${{ inputs.release_tag }}'
+          fi
+          [[ "$tag" == "v${PRODUCT_VERSION}" ]] || { echo "Expected v${PRODUCT_VERSION}, got $tag"; exit 1; }
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      - name: Create or update release
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if gh release view --repo "$GH_REPO" "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload --repo "$GH_REPO" "$RELEASE_TAG" release-files/* --clobber
+          else
+            gh release create --repo "$GH_REPO" "$RELEASE_TAG" release-files/* \
+              --target "$GITHUB_SHA" \
+              --title "ECCO2 CPWI Dew Mirror ${PRODUCT_VERSION}" \
+              --notes "Windows-x64 release built and tested by GitHub Actions. The mirror is deliberately read-only and does not include a virtual COM driver."
+          fi
