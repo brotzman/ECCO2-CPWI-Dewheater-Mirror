@@ -1,8 +1,12 @@
 # ECCO2 CPWI Dew Mirror 1.0.1 — 03.08.2026
 
+- Korrigiert die native Setup-Deinstallation, wenn sie über ein externes Setup-/Reparaturmedium gestartet wird: Der installierte Uninstaller und das Installationsverzeichnis werden nun synchron mit Wiederholungsversuchen entfernt.
+- Der selbstlöschende Cleanup des installierten Uninstallers startet ausdrücklich aus `%TEMP%`, damit kein geerbtes Arbeitsverzeichnis die Ordnerlöschung blockiert.
+- Zusätzliches Cleanup-Protokoll (`*.cleanup.log`) für die Diagnose des asynchronen Selbstlöschpfads.
+- Installer-Test wartet nun bis zu 90 Sekunden auf die vollständige Entfernung.
 - Weiteren PowerShell-`StrictMode`-Fehler behoben: Einzelne Registry-Treffer werden nicht mehr über eine unsichere `.Count`-Eigenschaft ausgewertet.
 - Installer-Test verwendet nun eine feste Ganzzahlfunktion für die Anzahl passender Deinstallationsregistrierungen.
-- Nach Setup- und MSI-Deinstallation wird bis zu 45 Sekunden kontrolliert auf die vollständige Entfernung gewartet, statt nur zwei Sekunden zu pausieren.
+- Nach Setup- und MSI-Deinstallation wird bis zu 90 Sekunden kontrolliert auf die vollständige Entfernung gewartet, statt nur zwei Sekunden zu pausieren.
 - Die native Setup-Deinstallation versucht die selbstlöschende Installationsmappe mehrfach zu entfernen und toleriert kurzlebige Explorer-, Antivirus- oder Dateisystemhandles.
 - Installer-Test korrigiert: Registry-Einträge ohne `DisplayName` oder `DisplayVersion` lösen unter PowerShell `StrictMode` keinen Abbruch mehr aus.
 - Die Produkterkennung liest Registry-Eigenschaften jetzt defensiv über `PSObject.Properties`.

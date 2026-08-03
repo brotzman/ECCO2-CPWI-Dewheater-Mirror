@@ -69,7 +69,7 @@ function Verify-Uninstalled {
     if (Test-Path $startMenuShortcut) { throw "Start-menu shortcut remains: $startMenuShortcut" }
     if ((Get-ProductRegistrationCount) -ne 0) { throw 'Uninstall registration remains.' }
 }
-function Wait-Uninstalled([int]$TimeoutSeconds = 45) {
+function Wait-Uninstalled([int]$TimeoutSeconds = 90) {
     $deadline=[DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
     do {
         $directoryExists=Test-Path $installDir
@@ -99,7 +99,7 @@ try {
         Verify-Installed
         Invoke-Bounded $msiexec ("/x " + (Quote $msi) + " /qn /norestart /L*V! " + (Quote (Join-Path $logs 'msi-uninstall.log')) + " REBOOT=ReallySuppress") 180 'MSI uninstall'
     }
-    Wait-Uninstalled -TimeoutSeconds 45
+    Wait-Uninstalled -TimeoutSeconds 90
     Write-Host "PASS: $Mode installer test completed."
 } catch {
     Write-Host "FAIL: $Mode installer test: $($_.Exception.Message)"
@@ -115,7 +115,7 @@ try {
 } finally {
     $needsCleanup=(Test-Path $installDir) -or ((Get-ProductRegistrationCount) -gt 0)
     if ($needsCleanup) {
-        if ($Mode -eq 'Setup' -and (Test-Path $setup)) { try { Invoke-Bounded $setup '/uninstall /quiet /norestart' 90 'Cleanup setup uninstall'; Wait-Uninstalled -TimeoutSeconds 45 } catch {} }
-        if ($Mode -eq 'Msi' -and (Test-Path $msi)) { try { Invoke-Bounded $msiexec ("/x " + (Quote $msi) + " /qn /norestart REBOOT=ReallySuppress") 90 'Cleanup MSI uninstall'; Wait-Uninstalled -TimeoutSeconds 45 } catch {} }
+        if ($Mode -eq 'Setup' -and (Test-Path $setup)) { try { Invoke-Bounded $setup '/uninstall /quiet /norestart' 90 'Cleanup setup uninstall'; Wait-Uninstalled -TimeoutSeconds 90 } catch {} }
+        if ($Mode -eq 'Msi' -and (Test-Path $msi)) { try { Invoke-Bounded $msiexec ("/x " + (Quote $msi) + " /qn /norestart REBOOT=ReallySuppress") 90 'Cleanup MSI uninstall'; Wait-Uninstalled -TimeoutSeconds 90 } catch {} }
     }
 }

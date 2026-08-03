@@ -203,6 +203,11 @@ func powershellEncoded(script string, detached bool) error {
 	}
 	c.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: flags}
 	if detached {
+		// A detached cleanup process must not inherit the installation directory
+		// as its current working directory. Windows can keep that directory in
+		// use while a process has it as CWD, even after the uninstaller itself has
+		// exited. Start the helper from TEMP so it can delete the install folder.
+		c.Dir = os.TempDir()
 		return c.Start()
 	}
 	out, err := c.CombinedOutput()
@@ -222,6 +227,29 @@ func createShortcut(path, target, working, description, iconLocation string) err
 }
 
 func removePath(path string) { _ = os.RemoveAll(path) }
+
+func sameWindowsPath(a, b string) bool {
+	return strings.EqualFold(filepath.Clean(a), filepath.Clean(b))
+}
+
+func removeDirectoryWithRetries(path string, attempts int, delay time.Duration) error {
+	var lastErr error
+	for i := 0; i < attempts; i++ {
+		if err := os.RemoveAll(path); err != nil {
+			lastErr = err
+		}
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			return nil
+		} else if err != nil {
+			lastErr = err
+		}
+		time.Sleep(delay)
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("directory still exists")
+	}
+	return fmt.Errorf("remove %s: %w", path, lastErr)
+}
 
 func writeAtomic(path string, data []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
@@ -325,12 +353,15 @@ func install(o options) error {
 	return nil
 }
 
-func scheduleSelfRemoval(dir string, pid int) error {
+func scheduleSelfRemoval(dir string, pid int, setupLogPath string) error {
 	// The uninstaller executable lives inside the installation directory and
 	// therefore cannot remove that directory while its own process is alive.
-	// Wait for the process to exit, then retry removal to tolerate short-lived
+	// The cleanup helper explicitly changes to TEMP before waiting; otherwise
+	// an inherited current working directory can keep the installation folder
+	// undeletable on Windows. Removal is retried to tolerate short-lived
 	// antivirus, Explorer or filesystem handles.
-	script := `$ErrorActionPreference='SilentlyContinue'; for($i=0; $i -lt 300 -and (Get-Process -Id ` + strconv.Itoa(pid) + ` -ErrorAction SilentlyContinue); $i++){ Start-Sleep -Milliseconds 100 }; for($i=0; $i -lt 120 -and (Test-Path -LiteralPath ` + psQuote(dir) + `); $i++){ Remove-Item -LiteralPath ` + psQuote(dir) + ` -Recurse -Force -ErrorAction SilentlyContinue; if(Test-Path -LiteralPath ` + psQuote(dir) + `){ Start-Sleep -Milliseconds 250 } }`
+	cleanupLog := setupLogPath + ".cleanup.log"
+	script := `$ErrorActionPreference='SilentlyContinue'; Set-Location -LiteralPath $env:TEMP; $cleanupLog=` + psQuote(cleanupLog) + `; Add-Content -LiteralPath $cleanupLog -Value ((Get-Date).ToUniversalTime().ToString('o') + ' cleanup helper started from ' + (Get-Location).Path); for($i=0; $i -lt 300 -and (Get-Process -Id ` + strconv.Itoa(pid) + ` -ErrorAction SilentlyContinue); $i++){ Start-Sleep -Milliseconds 100 }; Add-Content -LiteralPath $cleanupLog -Value ((Get-Date).ToUniversalTime().ToString('o') + ' parent exited; deleting ' + ` + psQuote(dir) + `); for($i=0; $i -lt 180 -and (Test-Path -LiteralPath ` + psQuote(dir) + `); $i++){ Remove-Item -LiteralPath ` + psQuote(dir) + ` -Recurse -Force -ErrorAction SilentlyContinue; if(Test-Path -LiteralPath ` + psQuote(dir) + `){ Start-Sleep -Milliseconds 250 } }; if(Test-Path -LiteralPath ` + psQuote(dir) + `){ Add-Content -LiteralPath $cleanupLog -Value ((Get-Date).ToUniversalTime().ToString('o') + ' cleanup FAILED'); exit 1 }; Add-Content -LiteralPath $cleanupLog -Value ((Get-Date).ToUniversalTime().ToString('o') + ' cleanup completed')`
 	return powershellEncoded(script, true)
 }
 
@@ -346,7 +377,24 @@ func uninstall(o options) error {
 	for _, name := range []string{"ECCO2CPWIDewMirror.exe", "ECCO2CPWIDewMirror.ico", "README.md", "README_DE.md", "CHANGELOG.md", "LICENSE"} {
 		_ = os.Remove(filepath.Join(dir, name))
 	}
-	if err := scheduleSelfRemoval(dir, os.Getpid()); err != nil {
+
+	installedUninstaller := filepath.Join(dir, "ECCO2CPWIDewMirrorUninstall.exe")
+	currentExe, currentExeErr := os.Executable()
+	if currentExeErr == nil && !sameWindowsPath(currentExe, installedUninstaller) {
+		// CI and explicit repair media call the external setup executable. It is
+		// not locked inside INSTALLFOLDER, so remove the installed uninstaller and
+		// directory synchronously. This avoids depending on an orphaned helper.
+		_ = os.Remove(installedUninstaller)
+		if err := removeDirectoryWithRetries(dir, 180, 250*time.Millisecond); err != nil {
+			return err
+		}
+		logLine(o.logPath, "uninstallation completed synchronously")
+		return nil
+	}
+
+	// Apps & Features invokes the installed uninstaller itself. Its executable
+	// remains locked until this process exits, so finish removal from TEMP.
+	if err := scheduleSelfRemoval(dir, os.Getpid(), o.logPath); err != nil {
 		return err
 	}
 	logLine(o.logPath, "uninstall scheduled")

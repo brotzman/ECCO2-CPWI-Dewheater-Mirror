@@ -56,7 +56,7 @@ func TestRepositoryBuildAndInstallerContracts(t *testing.T) {
 		}
 	}
 	setup := mustReadContract(t, "cmd/setup/main_windows.go")
-	for _, want := range []string{"//go:build windows && installerpayload", "//go:embed payload/*", "IsUserAnAdmin", "-Verb RunAs", "ECCO2CPWIDewMirrorUninstall.exe", "WScript.Shell", "QuietUninstallString", "ECCO2CPWIDewMirror.ico", "$s.IconLocation", "if !admin()", "h, err := acquireMutex()", "os.Exit(1)", "taskkill.exe", "for($i=0; $i -lt 120", "Remove-Item -LiteralPath", "argumentClause := \"\"", "if argumentLine != \"\""} {
+	for _, want := range []string{"//go:build windows && installerpayload", "//go:embed payload/*", "IsUserAnAdmin", "-Verb RunAs", "ECCO2CPWIDewMirrorUninstall.exe", "WScript.Shell", "QuietUninstallString", "ECCO2CPWIDewMirror.ico", "$s.IconLocation", "if !admin()", "h, err := acquireMutex()", "os.Exit(1)", "taskkill.exe", "c.Dir = os.TempDir()", "Set-Location -LiteralPath $env:TEMP", "cleanupLog := setupLogPath + \".cleanup.log\"", "sameWindowsPath(currentExe, installedUninstaller)", "removeDirectoryWithRetries(dir, 180, 250*time.Millisecond)", "uninstallation completed synchronously", "for($i=0; $i -lt 180", "Remove-Item -LiteralPath", "argumentClause := \"\"", "if argumentLine != \"\""} {
 		if !strings.Contains(setup, want) {
 			t.Errorf("native setup missing %q", want)
 		}
