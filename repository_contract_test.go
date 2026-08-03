@@ -23,6 +23,7 @@ func TestRepositoryBuildAndInstallerContracts(t *testing.T) {
 		"actions/upload-artifact@v7", "actions/download-artifact@v8",
 		"go test -race ./...", "-Mode Setup", "-Mode Msi", "publish_release",
 		"GH_REPO: ${{ github.repository }}", "ECCO2-CPWI-Dew-Mirror-1.0.1-Build-Logs", "timeout-minutes", "shell: pwsh",
+		"Test-ReleaseArtifacts.ps1", "setup-test-summary.log", "msi-test-summary.log",
 	} {
 		if !strings.Contains(workflow, want) {
 			t.Errorf("workflow missing %q", want)
@@ -32,8 +33,25 @@ func TestRepositoryBuildAndInstallerContracts(t *testing.T) {
 	if !strings.Contains(buildRelease, "go build -tags installerpayload") {
 		t.Error("Build-Release.ps1 must compile the setup with the installerpayload tag")
 	}
+	for _, want := range []string{"'artifacts'", "'ci-input'", "ZipFile]::CreateFromDirectory", "(Join-Path $root 'LICENSE')", "assets\\ECCO2CPWIDewMirror.ico", "ECCO2CPWIDewMirror.ico"} {
+		if !strings.Contains(buildRelease, want) {
+			t.Errorf("source packaging contract missing %q", want)
+		}
+	}
+	installerTest := mustReadContract(t, "scripts/Test-Installer.ps1")
+	for _, want := range []string{"Start-menu shortcut missing", "Uninstall registration missing", "Installed document missing", "Installed icon missing", "Verify-Uninstalled", "Remove-Item $exe -Force"} {
+		if !strings.Contains(installerTest, want) {
+			t.Errorf("installer test contract missing %q", want)
+		}
+	}
+	releaseTest := mustReadContract(t, "scripts/Test-ReleaseArtifacts.ps1")
+	for _, want := range []string{".gitignore", "LICENSE", "artifacts/", "Checksum mismatch", "ECCO2CPWIDewMirror.ico", "assets/ECCO2CPWIDewMirror.png"} {
+		if !strings.Contains(releaseTest, want) {
+			t.Errorf("release artifact test missing %q", want)
+		}
+	}
 	setup := mustReadContract(t, "cmd/setup/main_windows.go")
-	for _, want := range []string{"//go:build windows && installerpayload", "//go:embed payload/*", "IsUserAnAdmin", "-Verb RunAs", "ECCO2CPWIDewMirrorUninstall.exe", "WScript.Shell", "QuietUninstallString", "if !admin()", "h, err := acquireMutex()", "os.Exit(1)", "taskkill.exe", "argumentClause := \"\"", "if argumentLine != \"\""} {
+	for _, want := range []string{"//go:build windows && installerpayload", "//go:embed payload/*", "IsUserAnAdmin", "-Verb RunAs", "ECCO2CPWIDewMirrorUninstall.exe", "WScript.Shell", "QuietUninstallString", "ECCO2CPWIDewMirror.ico", "$s.IconLocation", "if !admin()", "h, err := acquireMutex()", "os.Exit(1)", "taskkill.exe", "argumentClause := \"\"", "if argumentLine != \"\""} {
 		if !strings.Contains(setup, want) {
 			t.Errorf("native setup missing %q", want)
 		}
@@ -46,7 +64,7 @@ func TestRepositoryBuildAndInstallerContracts(t *testing.T) {
 	if err := xml.Unmarshal([]byte(packageWxs), &doc); err != nil {
 		t.Fatalf("Package.wxs is invalid XML: %v", err)
 	}
-	for _, want := range []string{"ProgramFiles64Folder", "DesktopFolder", "ProgramMenuFolder", "MajorUpgrade", "ECCO2CPWIDewMirror.exe"} {
+	for _, want := range []string{"ProgramFiles64Folder", "DesktopFolder", "ProgramMenuFolder", "MajorUpgrade", "ECCO2CPWIDewMirror.exe", "ECCO2CPWIDewMirror.ico", "CmpAppIcon", "ARPPRODUCTICON", "Icon=\"AppShortcutIcon\"", "CmpLicense", "LICENSE"} {
 		if !strings.Contains(packageWxs, want) {
 			t.Errorf("Package.wxs missing %q", want)
 		}

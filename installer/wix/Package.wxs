@@ -13,12 +13,17 @@
         Schedule="afterInstallInitialize" />
 
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+    <Icon Id="AppShortcutIcon" SourceFile="$(var.Payload)\ECCO2CPWIDewMirror.ico" />
     <Property Id="ARPNOMODIFY" Value="1" />
+    <Property Id="ARPPRODUCTICON" Value="AppShortcutIcon" />
 
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="ECCO2 CPWI Dew Mirror">
         <Component Id="CmpMainExe" Guid="*" Bitness="always64">
           <File Id="MainExe" Source="$(var.Payload)\ECCO2CPWIDewMirror.exe" KeyPath="yes" />
+        </Component>
+        <Component Id="CmpAppIcon" Guid="*" Bitness="always64">
+          <File Id="AppIconFile" Source="$(var.Payload)\ECCO2CPWIDewMirror.ico" KeyPath="yes" />
         </Component>
         <Component Id="CmpReadmeDe" Guid="*" Bitness="always64">
           <File Id="ReadmeDe" Source="$(var.Payload)\README_DE.md" KeyPath="yes" />
@@ -28,6 +33,9 @@
         </Component>
         <Component Id="CmpChangelog" Guid="*" Bitness="always64">
           <File Id="Changelog" Source="$(var.Payload)\CHANGELOG.md" KeyPath="yes" />
+        </Component>
+        <Component Id="CmpLicense" Guid="*" Bitness="always64">
+          <File Id="License" Source="$(var.Payload)\LICENSE" KeyPath="yes" />
         </Component>
       </Directory>
     </StandardDirectory>
@@ -39,7 +47,8 @@
             Name="ECCO2 CPWI Dew Mirror"
             Description="ECCO2 CPWI Dew Mirror $(var.ProductVersion)"
             Target="[INSTALLFOLDER]ECCO2CPWIDewMirror.exe"
-            WorkingDirectory="INSTALLFOLDER" />
+            WorkingDirectory="INSTALLFOLDER"
+            Icon="AppShortcutIcon" />
         <RegistryValue
             Root="HKLM"
             Key="Software\ECCO2CPWIDewMirror"
@@ -58,7 +67,8 @@
               Name="ECCO2 CPWI Dew Mirror"
               Description="ECCO2 CPWI Dew Mirror $(var.ProductVersion)"
               Target="[INSTALLFOLDER]ECCO2CPWIDewMirror.exe"
-              WorkingDirectory="INSTALLFOLDER" />
+              WorkingDirectory="INSTALLFOLDER"
+              Icon="AppShortcutIcon" />
           <RemoveFolder Id="RemoveProgramMenuProductFolder" On="uninstall" />
           <RegistryValue
               Root="HKLM"
@@ -73,9 +83,11 @@
 
     <Feature Id="MainFeature" Title="ECCO2 CPWI Dew Mirror" Level="1">
       <ComponentRef Id="CmpMainExe" />
+      <ComponentRef Id="CmpAppIcon" />
       <ComponentRef Id="CmpReadmeDe" />
       <ComponentRef Id="CmpReadmeEn" />
       <ComponentRef Id="CmpChangelog" />
+      <ComponentRef Id="CmpLicense" />
       <ComponentRef Id="CmpDesktopShortcut" />
       <ComponentRef Id="CmpStartMenuShortcut" />
     </Feature>

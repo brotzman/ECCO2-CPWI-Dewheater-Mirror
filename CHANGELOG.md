@@ -1,5 +1,18 @@
 # ECCO2 CPWI Dew Mirror 1.0.1 — 03.08.2026
 
+- Neues App-Icon integriert und in Portable-ZIP, Setup und MSI ausgeliefert.
+- Desktop- und Startmenü-Verknüpfungen verwenden jetzt automatisch das neue Icon.
+- Installer und MSI hinterlegen das neue Produkticon auch in der Windows-Softwareliste.
+- Statusfenster lädt das Icon ebenfalls zur Laufzeit für Titelleiste und Taskleiste.
+- Abstände und Höhen im Hauptfenster wurden überarbeitet, um Clipping im Bereich „ECCO2 Telemetrie“ zu vermeiden.
+- Minimale Fenstergröße erhöht, damit die überarbeitete Anordnung stabil und lesbar bleibt.
+- MSI-Installation, erzwungene Reparatur und Deinstallation wurden auf einem sauberen Windows-Runner erfolgreich bestätigt.
+- Installer-Tests prüfen jetzt zusätzlich Startmenü-Verknüpfung, Deinstallationsregistrierung und deren vollständige Entfernung.
+- Auch der native Setup-Reparaturtest löscht die Programmdatei vorab und muss sie wiederherstellen.
+- Das Quellarchiv enthält nun die Repository-Dotfiles und `LICENSE`, aber keine Build-Logs oder generierten Verzeichnisse.
+- Ein neuer Release-Artefakttest validiert Prüfsummen sowie Portable- und Quellarchive.
+- README-Lizenzhinweise wurden an die vorhandene GPL-3.0-Lizenz angepasst.
+- Portable-ZIP, native Setup-EXE und MSI enthalten nun ebenfalls `LICENSE`.
 - Korrigiert den Windows-CI-Abbruch durch `go vet` bei `WM_GETMINMAXINFO`.
 - Die Win32-Struktur wird ohne direkte `uintptr`→`unsafe.Pointer`-Konvertierung gelesen und zurückgeschrieben.
 - GitHub-Actions-PowerShell-Schritte verwenden jetzt PowerShell 7; Build-Logs werden dadurch als UTF-8 erzeugt.

@@ -25,14 +25,14 @@ try {
     go build -trimpath -buildvcs=false -ldflags '-s -w -H=windowsgui' -o (Join-Path $payload 'ECCO2CPWIDewMirror.exe') .
     if ($LASTEXITCODE -ne 0) { throw 'Windows-x64-Build fehlgeschlagen.' }
 } finally { Pop-Location }
-Copy-Item (Join-Path $root 'README.md'),(Join-Path $root 'README_DE.md'),(Join-Path $root 'CHANGELOG.md') -Destination $payload
+Copy-Item (Join-Path $root 'README.md'),(Join-Path $root 'README_DE.md'),(Join-Path $root 'CHANGELOG.md'),(Join-Path $root 'LICENSE'),(Join-Path $root 'assets\ECCO2CPWIDewMirror.ico') -Destination $payload
 Copy-Item (Join-Path $payload '*') -Destination $setupPayload -Recurse -Force
 Push-Location $root
 try {
     go build -tags installerpayload -trimpath -buildvcs=false -ldflags '-s -w -H=windowsgui' -o (Join-Path $dist "ECCO2-CPWI-Dew-Mirror-$ProductVersion-Setup.exe") ./cmd/setup
     if ($LASTEXITCODE -ne 0) { throw 'Native Setup-Build fehlgeschlagen.' }
 } finally { Pop-Location }
-Copy-Item (Join-Path $payload 'ECCO2CPWIDewMirror.exe') -Destination $dist
+Copy-Item (Join-Path $payload 'ECCO2CPWIDewMirror.exe'),(Join-Path $payload 'ECCO2CPWIDewMirror.ico') -Destination $dist
 if (-not $SkipMsi) {
     & (Join-Path $root 'installer\build-wix.ps1') -Payload $payload -Output $wixOut -ProductVersion $ProductVersion -WixExe $WixExe
     Copy-Item (Join-Path $wixOut '*') -Destination $dist -Force
@@ -43,11 +43,16 @@ Copy-Item (Join-Path $payload '*') -Destination $portableDir -Recurse -Force
 Compress-Archive -Path (Join-Path $portableDir '*') -DestinationPath "$portableDir.zip" -CompressionLevel Optimal
 Remove-Item $portableDir -Recurse -Force
 $sourceStage = Join-Path $env:TEMP ("ecco2-source-" + [guid]::NewGuid().ToString('N'))
+$sourceZip = Join-Path $dist "ECCO2-CPWI-Dew-Mirror-$ProductVersion-Source.zip"
+$sourceExcludes = @('.git','dist','artifacts','ci-input','.config','.wix')
 New-Item -ItemType Directory -Force -Path $sourceStage | Out-Null
 try {
-    Get-ChildItem -LiteralPath $root -Force | Where-Object { $_.Name -notin @('.git','dist') } | Copy-Item -Destination $sourceStage -Recurse -Force
+    Get-ChildItem -LiteralPath $root -Force |
+        Where-Object { $_.Name -notin $sourceExcludes } |
+        Copy-Item -Destination $sourceStage -Recurse -Force
     Remove-Item (Join-Path $sourceStage 'installer\payload'),(Join-Path $sourceStage 'installer\out'),(Join-Path $sourceStage 'cmd\setup\payload') -Recurse -Force -ErrorAction SilentlyContinue
-    Compress-Archive -Path (Join-Path $sourceStage '*') -DestinationPath (Join-Path $dist "ECCO2-CPWI-Dew-Mirror-$ProductVersion-Source.zip") -CompressionLevel Optimal
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [IO.Compression.ZipFile]::CreateFromDirectory($sourceStage,$sourceZip,[IO.Compression.CompressionLevel]::Optimal,$false)
 } finally { Remove-Item $sourceStage -Recurse -Force -ErrorAction SilentlyContinue }
 $commit=if ($env:GITHUB_SHA) {$env:GITHUB_SHA} else {'local'}
 $buildInfo = @("Product: ECCO2 CPWI Dew Mirror","Version: $ProductVersion","Go: $(go version)","Commit: $commit","BuiltUTC: $([DateTime]::UtcNow.ToString('o'))") -join "`r`n"

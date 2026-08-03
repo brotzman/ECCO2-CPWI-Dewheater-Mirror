@@ -1,60 +1,85 @@
 # ECCO2 CPWI Dew Mirror 1.0.1 — Build/Test Report
 
-## Auswertung des fehlgeschlagenen GitHub-Actions-Laufs
+## Ursprünglicher Buildfehler
 
-Die bereitgestellten Logs zeigen:
+Der erste bereitgestellte GitHub-Actions-Lauf brach bei `go vet` ab. Ursache war
+eine direkte `uintptr`→`unsafe.Pointer`-Konvertierung im Win32-Callback für
+`WM_GETMINMAXINFO`. Diese Stelle wurde über `RtlMoveMemory` abgesichert und durch
+einen Regressionstest geschützt.
 
-- Repository-Validierung: **PASS**
-- Go-Unit-Tests: **PASS**
-- Abbruch in `scripts/Build-Release.ps1` bei `go vet`
-- Ursache: `main_windows.go` wandelte den von Win32 gelieferten `lParam` in
-  `WM_GETMINMAXINFO` direkt von `uintptr` in `unsafe.Pointer` um. Der
-  `unsafeptr`-Analyzer meldete deshalb `possible misuse of unsafe.Pointer`.
-- Der Lauf erreichte Anwendungsbuild, Setup-Build, WiX-MSI-Build und
-  Installer-Tests nicht. Aus diesem fehlgeschlagenen Lauf lässt sich daher
-  kein Ergebnis für diese nachgelagerten Stufen ableiten.
+## Ergebnis des nachfolgenden Windows-/MSI-Laufs vom 3. August 2026
 
-## Korrektur
+Die bereitgestellten MSI-Protokolle bestätigen auf einem sauberen Windows-Runner:
 
-- `WM_GETMINMAXINFO` verwendet keine direkte `uintptr`→`unsafe.Pointer`-
-  Konvertierung mehr. Die Win32-Struktur wird innerhalb des Callbacks über
-  `RtlMoveMemory` in eine lokale Go-Struktur kopiert, angepasst und wieder
-  zurückgeschrieben.
-- Ein Regressionstest schlägt fehl, falls das beanstandete Muster erneut
-  eingeführt wird.
-- Die Windows-Schritte im GitHub-Actions-Workflow verwenden PowerShell 7
-  (`pwsh`), sodass die Testlogs als UTF-8 statt als UTF-16 ausgegeben werden.
-- Unbenutzte Win32-Konstanten, Prozeduren, Handles und der nicht vorhandene
-  Refresh-Befehl wurden entfernt.
-- Setup- und WiX-Beschreibungen beziehen ihre Versionsangabe nun aus den
-  vorhandenen Versionsvariablen, um Versionsdrift zu vermeiden.
+- MSI-Installation: **PASS**, Windows-Installer-Status `0`
+- GUI-Smoke-Test nach Installation: durch das Testskript vorausgesetzt und bestanden
+- erzwungene MSI-Reparatur nach Löschen von `ECCO2CPWIDewMirror.exe`: **PASS**
+- Wiederherstellung der EXE mit identischem SHA-256-Hash: **PASS**
+- MSI-Deinstallation: **PASS**, Windows-Installer-Status `0`
+- Entfernung des Installationsverzeichnisses: **PASS**
 
-## Lokal automatisiert geprüft
+Die MSI-Loghinweise `1728` (Konfiguration abgeschlossen) und `1724`
+(Entfernen abgeschlossen) sind Erfolgsmeldungen. Es gibt kein `Return value 3`,
+keinen Status ungleich `0` und keinen Rückgabecode ungleich `0`. Der Hinweis auf
+eine fehlende `MsiPatchCertificate`-Tabelle betrifft ausschließlich LUA-Patching
+und ist für dieses ungepatchte MSI unkritisch. Die Artefakte sind derzeit nicht
+digital signiert.
 
-Mit Go 1.23.2 unter Linux wurden erfolgreich ausgeführt:
+## Zusätzlich geprüfte Release-Artefakte
 
-- `gofmt`-Prüfung
+- Alle Einträge in `SHA256SUMS.txt` stimmen mit den gelieferten Dateien überein.
+- Portable- und Quell-ZIP sind strukturell fehlerfrei.
+- Anwendung und native Setup-EXE sind Windows-x64-GUI-Binaries.
+- Das MSI ist x64/de-DE, Version 1.0.1, erstellt mit WiX 5.0.2.
+- ProductCode: `{68E505D6-0CB5-407E-98A1-11D043404CB9}`
+- UpgradeCode: `{9F8E1513-812C-4D29-9432-C14B43AB6384}`
+
+## Bei der Nachprüfung erkannte Repository-Verbesserungen
+
+Das erzeugte Quellarchiv enthielt versehentlich `artifacts/test-logs` und ließ
+die Dotfiles `.gitignore`, `.gitattributes` und `.editorconfig` aus. Außerdem
+behauptete die englische README noch, es sei keine Lizenz vorhanden, obwohl
+`LICENSE` die GPL Version 3 enthält.
+Die bisherigen Portable- und Installer-Payloads enthielten den Lizenztext ebenfalls nicht.
+
+Korrigiert wurden deshalb:
+
+- Quellpaket schließt `artifacts`, `ci-input`, `dist`, `.git`, `.config`, `.wix`
+  und generierte Installer-Verzeichnisse aus.
+- Quellpaket wird mit `ZipFile.CreateFromDirectory` erstellt und enthält dadurch
+  auch Repository-Dotfiles und `LICENSE`.
+- neuer `Test-ReleaseArtifacts.ps1` prüft Artefakte, SHA-256-Werte und ZIP-Inhalte.
+- Installer-Tests prüfen nun Desktop- und Startmenü-Verknüpfung sowie
+  Deinstallationsregistrierung vor und nach der Deinstallation.
+- der native Setup-Reparaturtest löscht die EXE vor der Reparatur, genau wie der
+  MSI-Test.
+- GitHub Actions archiviert zusätzlich eine lesbare Zusammenfassung jedes
+  Setup-/MSI-Testlaufs.
+- Lizenzhinweise in README und README_DE entsprechen jetzt GPL-3.0.
+- Portable-ZIP, native Setup-EXE und MSI enthalten die Datei `LICENSE`; die
+  Installer-Tests prüfen deren Installation.
+
+## Lokal erneut geprüft
+
+Mit Go 1.23.2 unter Linux:
+
+- `gofmt`
 - `go test -count=1 ./...`
 - `go test -race -count=1 ./...`
 - `go vet ./...`
 - `GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...`
 - Windows-x64-GUI-Cross-Build der Anwendung
-- Kompilierung des Windows-Testprogramms
 - Windows-x64-GUI-Cross-Build des nativen Setup-Bootstrappers
-- Bash-Syntaxprüfung von `build-cross.sh`
-- XML-Prüfung von `installer/wix/Package.wxs`
-- YAML-Prüfung von `.github/workflows/build-release.yml`
-- Prüfung auf versehentlich enthaltene EXE-, MSI-, PDB- und Cache-Dateien
+- XML-Prüfung des WiX-Manifests
+- YAML-Prüfung des GitHub-Actions-Workflows
+- Archivsauberkeitsprüfung des Repository-ZIP
 
-## Noch auf GitHub Actions beziehungsweise Windows zu prüfen
+## Noch ausstehend
 
-Ein neuer Workflow-Lauf ist weiterhin erforderlich für:
-
-- Build mit der im Workflow festgelegten Go-Version 1.26.5
-- WiX-5-MSI-Erstellung
-- Installation, Reparatur und Deinstallation der nativen Setup-EXE
-- Installation, Reparatur und Deinstallation des MSI
-- Win32-GUI-Smoke-Test auf einem echten Windows-Runner
+Die **erweiterten** Setup- und MSI-Tests sowie der korrigierte Quellpaket-Test
+müssen einmal in einem neuen GitHub-Actions-Lauf ausgeführt werden. Für den
+nativen Setup-Lauf wurden in diesem Upload keine Setup-Testlogs bereitgestellt;
+daher wird dessen bisheriger Erfolg nicht aus den MSI-Logs abgeleitet.
 
 ## Sicherheitsinvariante
 

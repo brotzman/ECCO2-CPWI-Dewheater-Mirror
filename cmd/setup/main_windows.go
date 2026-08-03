@@ -212,8 +212,12 @@ func powershellEncoded(script string, detached bool) error {
 	return nil
 }
 
-func createShortcut(path, target, working, description string) error {
-	script := `$ErrorActionPreference='Stop'; $w=New-Object -ComObject WScript.Shell; $s=$w.CreateShortcut(` + psQuote(path) + `); $s.TargetPath=` + psQuote(target) + `; $s.WorkingDirectory=` + psQuote(working) + `; $s.Description=` + psQuote(description) + `; $s.Save()`
+func createShortcut(path, target, working, description, iconLocation string) error {
+	script := `$ErrorActionPreference='Stop'; $w=New-Object -ComObject WScript.Shell; $s=$w.CreateShortcut(` + psQuote(path) + `); $s.TargetPath=` + psQuote(target) + `; $s.WorkingDirectory=` + psQuote(working) + `; $s.Description=` + psQuote(description)
+	if strings.TrimSpace(iconLocation) != "" {
+		script += `; $s.IconLocation=` + psQuote(iconLocation)
+	}
+	script += `; $s.Save()`
 	return powershellEncoded(script, false)
 }
 
@@ -267,7 +271,7 @@ func registerUninstall(dir string) error {
 	if err := regAdd("InstallLocation", "REG_SZ", dir); err != nil {
 		return err
 	}
-	if err := regAdd("DisplayIcon", "REG_SZ", filepath.Join(dir, "ECCO2CPWIDewMirror.exe")); err != nil {
+	if err := regAdd("DisplayIcon", "REG_SZ", filepath.Join(dir, "ECCO2CPWIDewMirror.ico")); err != nil {
 		return err
 	}
 	if err := regAdd("UninstallString", "REG_SZ", `"`+uninstaller+`" /uninstall`); err != nil {
@@ -288,7 +292,7 @@ func registerUninstall(dir string) error {
 func install(o options) error {
 	dir := installDir()
 	logLine(o.logPath, "install/repair to "+dir)
-	files := []string{"ECCO2CPWIDewMirror.exe", "README.md", "README_DE.md", "CHANGELOG.md"}
+	files := []string{"ECCO2CPWIDewMirror.exe", "ECCO2CPWIDewMirror.ico", "README.md", "README_DE.md", "CHANGELOG.md", "LICENSE"}
 	for _, name := range files {
 		b, err := payloadFile(name)
 		if err != nil {
@@ -302,14 +306,16 @@ func install(o options) error {
 	if err := copySelf(uninstaller); err != nil {
 		return fmt.Errorf("install uninstaller: %w", err)
 	}
-	if err := createShortcut(filepath.Join(publicDesktop(), productName+".lnk"), filepath.Join(dir, "ECCO2CPWIDewMirror.exe"), dir, productName+" "+version); err != nil {
+	appExe := filepath.Join(dir, "ECCO2CPWIDewMirror.exe")
+	appIcon := filepath.Join(dir, "ECCO2CPWIDewMirror.ico")
+	if err := createShortcut(filepath.Join(publicDesktop(), productName+".lnk"), appExe, dir, productName+" "+version, appIcon); err != nil {
 		return err
 	}
 	menu := startMenuDir()
 	if err := os.MkdirAll(menu, 0755); err != nil {
 		return err
 	}
-	if err := createShortcut(filepath.Join(menu, productName+".lnk"), filepath.Join(dir, "ECCO2CPWIDewMirror.exe"), dir, productName+" "+version); err != nil {
+	if err := createShortcut(filepath.Join(menu, productName+".lnk"), appExe, dir, productName+" "+version, appIcon); err != nil {
 		return err
 	}
 	if err := registerUninstall(dir); err != nil {
@@ -333,7 +339,7 @@ func uninstall(o options) error {
 	removePath(filepath.Join(publicDesktop(), productName+".lnk"))
 	removePath(startMenuDir())
 	_ = runHidden("reg.exe", "DELETE", uninstallKey, "/f")
-	for _, name := range []string{"ECCO2CPWIDewMirror.exe", "README.md", "README_DE.md", "CHANGELOG.md"} {
+	for _, name := range []string{"ECCO2CPWIDewMirror.exe", "ECCO2CPWIDewMirror.ico", "README.md", "README_DE.md", "CHANGELOG.md", "LICENSE"} {
 		_ = os.Remove(filepath.Join(dir, name))
 	}
 	if err := scheduleSelfRemoval(dir, os.Getpid()); err != nil {

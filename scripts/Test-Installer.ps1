@@ -12,6 +12,9 @@ $logs=Join-Path $root 'test-logs'
 New-Item -ItemType Directory -Force -Path $logs | Out-Null
 $installDir=Join-Path $env:ProgramFiles 'ECCO2 CPWI Dew Mirror'
 $exe=Join-Path $installDir 'ECCO2CPWIDewMirror.exe'
+$icon=Join-Path $installDir 'ECCO2CPWIDewMirror.ico'
+$desktopShortcut=Join-Path ([Environment]::GetFolderPath('CommonDesktopDirectory')) 'ECCO2 CPWI Dew Mirror.lnk'
+$startMenuShortcut=Join-Path ([Environment]::GetFolderPath('CommonPrograms')) 'ECCO2 CPWI Dew Mirror\ECCO2 CPWI Dew Mirror.lnk'
 $setup=Join-Path $dist "ECCO2-CPWI-Dew-Mirror-$ProductVersion-Setup.exe"
 $msi=Join-Path $dist "ECCO2-CPWI-Dew-Mirror-$ProductVersion-x64.msi"
 $msiexec=Join-Path $env:SystemRoot 'System32\msiexec.exe'
@@ -24,19 +27,41 @@ function Invoke-Bounded([string]$File,[string]$Arguments,[int]$Timeout,[string]$
     if ($p.ExitCode -notin @(0,3010)) { throw "$Description failed with exit code $($p.ExitCode)." }
 }
 function Quote([string]$s) { '"' + $s.Replace('"','\"') + '"' }
+function Get-ProductRegistrations {
+    $paths=@(
+        'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+        'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+    )
+    @(Get-ItemProperty -Path $paths -ErrorAction SilentlyContinue | Where-Object {
+        $_.DisplayName -eq 'ECCO2 CPWI Dew Mirror' -and $_.DisplayVersion -eq $ProductVersion
+    })
+}
 function Verify-Installed {
     if (-not (Test-Path $exe -PathType Leaf)) { throw "Installed executable missing: $exe" }
     $expected=(Get-FileHash (Join-Path $dist 'ECCO2CPWIDewMirror.exe') -Algorithm SHA256).Hash
     $actual=(Get-FileHash $exe -Algorithm SHA256).Hash
     if ($expected -ne $actual) { throw 'Installed executable hash differs from built executable.' }
-    $desktop=[Environment]::GetFolderPath('CommonDesktopDirectory')
-    if (-not (Test-Path (Join-Path $desktop 'ECCO2 CPWI Dew Mirror.lnk'))) { throw 'Desktop shortcut missing.' }
+    if (-not (Test-Path $icon -PathType Leaf)) { throw "Installed icon missing: $icon" }
+    foreach($name in @('README.md','README_DE.md','CHANGELOG.md','LICENSE')) {
+        $document=Join-Path $installDir $name
+        if (-not (Test-Path $document -PathType Leaf)) { throw "Installed document missing: $document" }
+    }
+    if (-not (Test-Path $desktopShortcut -PathType Leaf)) { throw "Desktop shortcut missing: $desktopShortcut" }
+    if (-not (Test-Path $startMenuShortcut -PathType Leaf)) { throw "Start-menu shortcut missing: $startMenuShortcut" }
+    if ((Get-ProductRegistrations).Count -lt 1) { throw 'Uninstall registration missing.' }
     & (Join-Path $PSScriptRoot 'Test-GuiStartup.ps1') -Exe $exe -TimeoutSeconds 20
+}
+function Verify-Uninstalled {
+    if (Test-Path $installDir) { throw "Installation directory remains: $installDir" }
+    if (Test-Path $desktopShortcut) { throw "Desktop shortcut remains: $desktopShortcut" }
+    if (Test-Path $startMenuShortcut) { throw "Start-menu shortcut remains: $startMenuShortcut" }
+    if ((Get-ProductRegistrations).Count -ne 0) { throw 'Uninstall registration remains.' }
 }
 try {
     if ($Mode -eq 'Setup') {
         Invoke-Bounded $setup ("/quiet /norestart /log " + (Quote (Join-Path $logs 'setup-install.log'))) 180 'Setup installation'
         Verify-Installed
+        Remove-Item $exe -Force
         Invoke-Bounded $setup ("/repair /quiet /norestart /log " + (Quote (Join-Path $logs 'setup-repair.log'))) 180 'Setup repair'
         Verify-Installed
         Invoke-Bounded $setup ("/uninstall /quiet /norestart /log " + (Quote (Join-Path $logs 'setup-uninstall.log'))) 180 'Setup uninstall'
@@ -49,10 +74,11 @@ try {
         Invoke-Bounded $msiexec ("/x " + (Quote $msi) + " /qn /norestart /L*V! " + (Quote (Join-Path $logs 'msi-uninstall.log')) + " REBOOT=ReallySuppress") 180 'MSI uninstall'
     }
     Start-Sleep -Seconds 2
-    if (Test-Path $installDir) { throw "Installation directory remains: $installDir" }
+    Verify-Uninstalled
     Write-Host "PASS: $Mode installer test completed."
 } finally {
-    if (Test-Path $installDir) {
+    $needsCleanup=(Test-Path $installDir) -or ((Get-ProductRegistrations).Count -gt 0)
+    if ($needsCleanup) {
         if ($Mode -eq 'Setup' -and (Test-Path $setup)) { try { Invoke-Bounded $setup '/uninstall /quiet /norestart' 90 'Cleanup setup uninstall' } catch {} }
         if ($Mode -eq 'Msi' -and (Test-Path $msi)) { try { Invoke-Bounded $msiexec ("/x " + (Quote $msi) + " /qn /norestart REBOOT=ReallySuppress") 90 'Cleanup MSI uninstall' } catch {} }
     }

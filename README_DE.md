@@ -107,4 +107,9 @@ Vollständige Artefakte mit Setup-EXE und MSI:
 Ohne WiX/MSI:
   .\scripts\Build-Release.ps1 -SkipMsi
 
+Lizenz
+-------
+Dieses Projekt steht unter der GNU General Public License Version 3.
+Die vollständigen Lizenzbedingungen befinden sich in `LICENSE`.
+
 Setup-EXE und MSI sind alternative Installationswege und sollen nicht parallel installiert werden.

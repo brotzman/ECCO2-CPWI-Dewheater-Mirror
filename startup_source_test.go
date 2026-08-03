@@ -21,6 +21,8 @@ func TestWindowsStatusWindowStartupContract(t *testing.T) {
 		"polling starts only after the window is visible": "go pollLoop()",
 		"startup log records visible window":              "WINDOW_VISIBLE",
 		"configuration is per-user":                       "LOCALAPPDATA",
+		"custom icon is loaded when available":            "loadAppIcon()",
+		"window icon is assigned explicitly":              "WM_SETICON",
 	}
 	for name, want := range checks {
 		if !strings.Contains(s, want) {
@@ -52,7 +54,7 @@ func TestWindowsMinMaxInfoAvoidsUnsafeUintptrConversion(t *testing.T) {
 	if strings.Contains(s, "(*MINMAXINFO)(unsafe.Pointer(lp))") {
 		t.Fatal("WM_GETMINMAXINFO still converts lParam directly to unsafe.Pointer")
 	}
-	for _, want := range []string{"func setMinimumTrackSize", "pRtlMoveMemory.Call", "setMinimumTrackSize(lp, 850, 720)"} {
+	for _, want := range []string{"func setMinimumTrackSize", "pRtlMoveMemory.Call", "setMinimumTrackSize(lp, 960, 780)"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("safe WM_GETMINMAXINFO handling missing %q", want)
 		}

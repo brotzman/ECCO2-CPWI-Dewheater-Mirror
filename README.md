@@ -32,6 +32,6 @@ The repository does not bundle a virtual COM driver.
 
 ## License
 
-No licence file was present in the supplied source. Add the intended licence before publishing the repository publicly.
+This project is licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE).
 
 Do not install the native Setup EXE and raw MSI side by side; they are alternative distribution formats.

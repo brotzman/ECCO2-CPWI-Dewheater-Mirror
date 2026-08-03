@@ -52,8 +52,14 @@ const (
 	WM_CTLCOLORSTATIC   = 0x0138
 	WM_CTLCOLOREDIT     = 0x0133
 	WM_GETMINMAXINFO    = 0x0024
+	WM_SETICON          = 0x0080
 	SIZE_MINIMIZED      = 1
 	TRANSPARENT         = 1
+	IMAGE_ICON          = 1
+	LR_LOADFROMFILE     = 0x0010
+	LR_DEFAULTSIZE      = 0x0040
+	ICON_SMALL          = 0
+	ICON_BIG            = 1
 	FW_NORMAL           = 400
 	FW_SEMIBOLD         = 600
 	CLEARTYPE_QUALITY   = 5
@@ -118,6 +124,7 @@ var (
 	pSendMessageW     = user32.NewProc("SendMessageW")
 	pLoadCursorW      = user32.NewProc("LoadCursorW")
 	pLoadIconW        = user32.NewProc("LoadIconW")
+	pLoadImageW       = user32.NewProc("LoadImageW")
 	pSetTimer         = user32.NewProc("SetTimer")
 	pKillTimer        = user32.NewProc("KillTimer")
 	pMoveWindow       = user32.NewProc("MoveWindow")
@@ -192,6 +199,42 @@ func legacyConfigPath() string {
 		return ""
 	}
 	return filepath.Join(filepath.Dir(e), "ECCO2CPWIDewMirror.json")
+}
+
+func appIconPath() string {
+	candidates := []string{}
+	if e, err := os.Executable(); err == nil {
+		dir := filepath.Dir(e)
+		candidates = append(candidates,
+			filepath.Join(dir, "ECCO2CPWIDewMirror.ico"),
+			filepath.Join(dir, "assets", "ECCO2CPWIDewMirror.ico"),
+		)
+	}
+	if wd, err := os.Getwd(); err == nil {
+		candidates = append(candidates,
+			filepath.Join(wd, "ECCO2CPWIDewMirror.ico"),
+			filepath.Join(wd, "assets", "ECCO2CPWIDewMirror.ico"),
+		)
+	}
+	for _, path := range candidates {
+		if path == "" {
+			continue
+		}
+		if st, err := os.Stat(path); err == nil && !st.IsDir() {
+			return path
+		}
+	}
+	return ""
+}
+
+func loadAppIcon() uintptr {
+	if path := appIconPath(); path != "" {
+		if h, _, _ := pLoadImageW.Call(0, uintptr(unsafe.Pointer(w(path))), IMAGE_ICON, 0, 0, LR_LOADFROMFILE|LR_DEFAULTSIZE); h != 0 {
+			return h
+		}
+	}
+	h, _, _ := pLoadIconW.Call(0, IDI_APPLICATION)
+	return h
 }
 
 func writeStartupLog(message string) {
@@ -666,48 +709,66 @@ func move(h uintptr, x, y, wid, hei int) {
 }
 func layout(cw, ch int) {
 	m := 22
+	if cw < 960 {
+		cw = 960
+	}
 	w0 := cw - 2*m
-	move(ctr["title"], m, 14, w0, 34)
-	move(ctr["sub"], m, 48, w0, 24)
-	y := 82
-	move(ctr["cfgGroup"], m, y, w0, 116)
-	move(ctr["eagleLab"], m+16, y+28, 95, 30)
-	move(ctr["eagle"], m+112, y+28, w0-128-150, 30)
-	move(ctr["save"], m+w0-140, y+27, 124, 32)
-	move(ctr["vcomLab"], m+16, y+66, 95, 30)
-	move(ctr["vcom"], m+112, y+66, 90, 30)
-	move(ctr["upLab"], m+216, y+66, 150, 30)
-	move(ctr["upcom"], m+366, y+66, 90, 30)
-	move(ctr["baudLab"], m+470, y+66, 55, 30)
-	move(ctr["baud"], m+525, y+66, 85, 30)
-	move(ctr["start"], m+w0-140, y+65, 124, 32)
-	y += 128
-	half := (w0 - 12) / 2
-	move(ctr["eccoGroup"], m, y, half, 218)
-	move(ctr["mirrorGroup"], m+half+12, y, half, 218)
-	lx := m + 16
-	vy := y + 32
+	titleH := 38
+	subH := 24
+	move(ctr["title"], m, 14, w0, titleH)
+	move(ctr["sub"], m, 54, w0, subH)
+	y := 88
+	buttonW := 132
+	fieldH := 28
+	buttonH := 32
+	cfgH := 126
+	move(ctr["cfgGroup"], m, y, w0, cfgH)
+	move(ctr["eagleLab"], m+18, y+30, 92, fieldH)
+	move(ctr["eagle"], m+112, y+30, w0-128-buttonW-14, fieldH)
+	move(ctr["save"], m+w0-buttonW-18, y+28, buttonW, buttonH)
+	move(ctr["vcomLab"], m+18, y+72, 92, fieldH)
+	move(ctr["vcom"], m+112, y+72, 92, fieldH)
+	move(ctr["upLab"], m+218, y+72, 150, fieldH)
+	move(ctr["upcom"], m+372, y+72, 96, fieldH)
+	move(ctr["baudLab"], m+484, y+72, 46, fieldH)
+	move(ctr["baud"], m+534, y+72, 88, fieldH)
+	move(ctr["start"], m+w0-buttonW-18, y+70, buttonW, buttonH)
+	y += cfgH + 14
+	half := (w0 - 14) / 2
+	groupH := 236
+	move(ctr["eccoGroup"], m, y, half, groupH)
+	move(ctr["mirrorGroup"], m+half+14, y, half, groupH)
+	lx := m + 18
+	rowTop := y + 34
+	rowStep := 27
+	labelW := 142
+	valueW := half - 176
+	if valueW < 120 {
+		valueW = 120
+	}
 	labels := []string{"ambLab", "humLab", "dewLab", "t5Lab", "t6Lab", "h1Lab", "h2Lab"}
 	vals := []string{"amb", "hum", "dew", "t5", "t6", "h1", "h2"}
 	for i := range labels {
-		move(ctr[labels[i]], lx, vy+i*25, 120, 23)
-		move(ctr[vals[i]], lx+125, vy+i*25, half-157, 23)
+		rowY := rowTop + i*rowStep
+		move(ctr[labels[i]], lx, rowY, labelW, 24)
+		move(ctr[vals[i]], lx+labelW+8, rowY, valueW, 24)
 	}
-	rx := m + half + 28
-	move(ctr["eagleStatus"], rx, y+32, half-32, 28)
-	move(ctr["eccoStatus"], rx, y+64, half-32, 28)
-	move(ctr["cpwiStatus"], rx, y+96, half-32, 28)
-	move(ctr["mode"], rx, y+132, half-32, 28)
-	move(ctr["stats"], rx, y+164, half-32, 42)
-	y += 230
+	rx := m + half + 32
+	statusW := half - 36
+	move(ctr["eagleStatus"], rx, y+36, statusW, 28)
+	move(ctr["eccoStatus"], rx, y+70, statusW, 28)
+	move(ctr["cpwiStatus"], rx, y+104, statusW, 28)
+	move(ctr["mode"], rx, y+142, statusW, 28)
+	move(ctr["stats"], rx, y+178, statusW, 42)
+	y += groupH + 14
 	move(ctr["error"], m, y, w0, 30)
-	y += 40
+	y += 38
 	logH := ch - y - m
-	if logH < 150 {
-		logH = 150
+	if logH < 170 {
+		logH = 170
 	}
 	move(ctr["logGroup"], m, y, w0, logH)
-	move(ctr["log"], m+14, y+28, w0-28, logH-42)
+	move(ctr["log"], m+14, y+28, w0-28, logH-44)
 }
 
 func buildUi() {
@@ -773,7 +834,7 @@ func setMinimumTrackSize(lParam uintptr, width, height int32) {
 func wndProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 	switch msg {
 	case WM_GETMINMAXINFO:
-		setMinimumTrackSize(lp, 850, 720)
+		setMinimumTrackSize(lp, 960, 780)
 		return 0
 	case WM_SIZE:
 		if wp != SIZE_MINIMIZED {
@@ -855,7 +916,7 @@ func main() {
 
 	cb := syscall.NewCallback(wndProc)
 	cur, _, _ := pLoadCursorW.Call(0, IDC_ARROW)
-	ico, _, _ := pLoadIconW.Call(0, IDI_APPLICATION)
+	ico := loadAppIcon()
 	classPtr := w(className)
 	titlePtr := w(appTitle)
 	wc := WNDCLASSEXW{CbSize: uint32(unsafe.Sizeof(WNDCLASSEXW{})), Style: 3, LpfnWndProc: cb, HInstance: hinst, HIcon: ico, HCursor: cur, HbrBackground: brushWindow, LpszClassName: classPtr, HIconSm: ico}
@@ -873,6 +934,8 @@ func main() {
 	}
 
 	buildUi()
+	pSendMessageW.Call(hwndMain, WM_SETICON, ICON_SMALL, ico)
+	pSendMessageW.Call(hwndMain, WM_SETICON, ICON_BIG, ico)
 	appendLog("Gestartet. Mirror ist sicherheitsbedingt READ ONLY.")
 	timer, _, timerErr := pSetTimer.Call(hwndMain, 1, 250, 0)
 	if timer == 0 {
