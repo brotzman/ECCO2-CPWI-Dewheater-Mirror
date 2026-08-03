@@ -51,7 +51,6 @@ const (
 	WM_SETFONT          = 0x0030
 	WM_CTLCOLORSTATIC   = 0x0138
 	WM_CTLCOLOREDIT     = 0x0133
-	WM_CTLCOLORBTN      = 0x0135
 	WM_GETMINMAXINFO    = 0x0024
 	SIZE_MINIMIZED      = 1
 	TRANSPARENT         = 1
@@ -64,12 +63,11 @@ const (
 	DEFAULT_PITCH       = 0
 	FF_DONTCARE         = 0
 
-	ID_EAGLE   = 1001
-	ID_VCOM    = 1002
-	ID_UPCOM   = 1003
-	ID_START   = 1004
-	ID_SAVE    = 1005
-	ID_REFRESH = 1006
+	ID_EAGLE = 1001
+	ID_VCOM  = 1002
+	ID_UPCOM = 1003
+	ID_START = 1004
+	ID_SAVE  = 1005
 )
 
 type POINT struct{ X, Y int32 }
@@ -124,13 +122,13 @@ var (
 	pKillTimer        = user32.NewProc("KillTimer")
 	pMoveWindow       = user32.NewProc("MoveWindow")
 	pGetClientRect    = user32.NewProc("GetClientRect")
-	pEnableWindow     = user32.NewProc("EnableWindow")
 	pMessageBoxW      = user32.NewProc("MessageBoxW")
 	pGetModuleHandleW = kernel32.NewProc("GetModuleHandleW")
 	pGetCommState     = kernel32.NewProc("GetCommState")
 	pSetCommState     = kernel32.NewProc("SetCommState")
 	pSetCommTimeouts  = kernel32.NewProc("SetCommTimeouts")
 	pPurgeComm        = kernel32.NewProc("PurgeComm")
+	pRtlMoveMemory    = kernel32.NewProc("RtlMoveMemory")
 	pCreateFontW      = gdi32.NewProc("CreateFontW")
 	pCreateSolidBrush = gdi32.NewProc("CreateSolidBrush")
 	pSetTextColor     = gdi32.NewProc("SetTextColor")
@@ -146,7 +144,7 @@ func i32(v int32) uintptr      { return uintptr(uint32(v)) }
 var hwndMain uintptr
 var ctr = map[string]uintptr{}
 var hFont, hTitle, hValue uintptr
-var brushWindow, brushWhite, brushValue, brushGreen, brushRed, brushBlue uintptr
+var brushWindow, brushWhite uintptr
 var colorInk = rgb(39, 52, 67)
 var colorMuted = rgb(88, 104, 123)
 var colorAccent = rgb(47, 109, 179)
@@ -757,12 +755,25 @@ func buildUi() {
 	layout(int(rc.Right), int(rc.Bottom))
 }
 
+func setMinimumTrackSize(lParam uintptr, width, height int32) {
+	// lParam is a Win32-owned pointer. Converting it directly from uintptr to
+	// unsafe.Pointer is valid only for the duration of the callback, but Go's
+	// unsafeptr analyser intentionally rejects that fragile pattern. Copy the
+	// structure through RtlMoveMemory instead, update it locally, and copy it
+	// back while the callback is active.
+	var info MINMAXINFO
+	size := unsafe.Sizeof(info)
+	pRtlMoveMemory.Call(uintptr(unsafe.Pointer(&info)), lParam, size)
+	info.PtMinTrackSize.X = width
+	info.PtMinTrackSize.Y = height
+	pRtlMoveMemory.Call(lParam, uintptr(unsafe.Pointer(&info)), size)
+	runtime.KeepAlive(&info)
+}
+
 func wndProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 	switch msg {
 	case WM_GETMINMAXINFO:
-		mm := (*MINMAXINFO)(unsafe.Pointer(lp))
-		mm.PtMinTrackSize.X = 850
-		mm.PtMinTrackSize.Y = 720
+		setMinimumTrackSize(lp, 850, 720)
 		return 0
 	case WM_SIZE:
 		if wp != SIZE_MINIMIZED {
@@ -777,8 +788,6 @@ func wndProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 			startBridge()
 		} else if id == ID_SAVE {
 			saveConfig()
-		} else if id == ID_REFRESH {
-			pollEagle()
 		}
 		return 0
 	case WM_TIMER:
@@ -843,14 +852,6 @@ func main() {
 	hValue, _, _ = pCreateFontW.Call(i32(-17), 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH|FF_DONTCARE, uintptr(unsafe.Pointer(w("Segoe UI"))))
 	brushWindow, _, _ = pCreateSolidBrush.Call(rgb(245, 247, 250))
 	brushWhite, _, _ = pCreateSolidBrush.Call(rgb(255, 255, 255))
-	brushValue, _, _ = pCreateSolidBrush.Call(rgb(237, 244, 255))
-	brushGreen, _, _ = pCreateSolidBrush.Call(rgb(46, 139, 87))
-	brushRed, _, _ = pCreateSolidBrush.Call(rgb(201, 74, 74))
-	brushBlue, _, _ = pCreateSolidBrush.Call(rgb(47, 109, 179))
-	_ = brushValue
-	_ = brushGreen
-	_ = brushRed
-	_ = brushBlue
 
 	cb := syscall.NewCallback(wndProc)
 	cur, _, _ := pLoadCursorW.Call(0, IDC_ARROW)

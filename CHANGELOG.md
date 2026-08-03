@@ -1,5 +1,9 @@
 # ECCO2 CPWI Dew Mirror 1.0.1 — 03.08.2026
 
+- Korrigiert den Windows-CI-Abbruch durch `go vet` bei `WM_GETMINMAXINFO`.
+- Die Win32-Struktur wird ohne direkte `uintptr`→`unsafe.Pointer`-Konvertierung gelesen und zurückgeschrieben.
+- GitHub-Actions-PowerShell-Schritte verwenden jetzt PowerShell 7; Build-Logs werden dadurch als UTF-8 erzeugt.
+- Regressionstest verhindert die erneute Einführung der unsicheren Konvertierung.
 - Behebt den fehlenden beziehungsweise unzuverlässigen Start des Statusfensters.
 - Win32-Fenster und Nachrichtenschleife bleiben jetzt sicher auf demselben OS-Thread.
 - Das Statusfenster wird vollständig aufgebaut und sichtbar gemacht, bevor EAGLE-Abfragen starten.

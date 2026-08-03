@@ -22,7 +22,7 @@ func TestRepositoryBuildAndInstallerContracts(t *testing.T) {
 		"actions/checkout@v7", "actions/setup-go@v7", "actions/setup-dotnet@v6",
 		"actions/upload-artifact@v7", "actions/download-artifact@v8",
 		"go test -race ./...", "-Mode Setup", "-Mode Msi", "publish_release",
-		"GH_REPO: ${{ github.repository }}", "ECCO2-CPWI-Dew-Mirror-1.0.1-Build-Logs", "timeout-minutes",
+		"GH_REPO: ${{ github.repository }}", "ECCO2-CPWI-Dew-Mirror-1.0.1-Build-Logs", "timeout-minutes", "shell: pwsh",
 	} {
 		if !strings.Contains(workflow, want) {
 			t.Errorf("workflow missing %q", want)

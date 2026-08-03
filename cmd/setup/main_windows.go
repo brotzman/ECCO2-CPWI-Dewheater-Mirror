@@ -372,7 +372,7 @@ func main() {
 		}
 	}
 	if !o.uninstall && !o.repair && !o.quiet {
-		if message("ECCO2 CPWI Dew Mirror 1.0.1 installieren?", mbYesNo|mbIconQuestion) != idYes {
+		if message(productName+" "+version+" installieren?", mbYesNo|mbIconQuestion) != idYes {
 			return
 		}
 	}

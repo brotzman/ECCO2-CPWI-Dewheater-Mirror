@@ -42,3 +42,19 @@ func TestWindowsStatusWindowStartupContract(t *testing.T) {
 		t.Fatal("silent status-window creation failure remains")
 	}
 }
+
+func TestWindowsMinMaxInfoAvoidsUnsafeUintptrConversion(t *testing.T) {
+	b, err := os.ReadFile("main_windows.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(b)
+	if strings.Contains(s, "(*MINMAXINFO)(unsafe.Pointer(lp))") {
+		t.Fatal("WM_GETMINMAXINFO still converts lParam directly to unsafe.Pointer")
+	}
+	for _, want := range []string{"func setMinimumTrackSize", "pRtlMoveMemory.Call", "setMinimumTrackSize(lp, 850, 720)"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("safe WM_GETMINMAXINFO handling missing %q", want)
+		}
+	}
+}
