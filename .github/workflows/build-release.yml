@@ -121,7 +121,12 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path .\ci-input\test-logs | Out-Null
-          .\ci-input\scripts\Test-Installer.ps1 -Mode Setup -ArtifactRoot .\ci-input -ProductVersion $env:PRODUCT_VERSION *>&1 | Tee-Object -FilePath .\ci-input\test-logs\setup-test-summary.log
+          try {
+            .\ci-input\scripts\Test-Installer.ps1 -Mode Setup -ArtifactRoot .\ci-input -ProductVersion $env:PRODUCT_VERSION *>&1 | Tee-Object -FilePath .\ci-input\test-logs\setup-test-summary.log
+          } catch {
+            "WORKFLOW FAILURE: $($_.Exception.Message)" | Tee-Object -FilePath .\ci-input\test-logs\setup-test-summary.log -Append
+            throw
+          }
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -144,7 +149,12 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path .\ci-input\test-logs | Out-Null
-          .\ci-input\scripts\Test-Installer.ps1 -Mode Msi -ArtifactRoot .\ci-input -ProductVersion $env:PRODUCT_VERSION *>&1 | Tee-Object -FilePath .\ci-input\test-logs\msi-test-summary.log
+          try {
+            .\ci-input\scripts\Test-Installer.ps1 -Mode Msi -ArtifactRoot .\ci-input -ProductVersion $env:PRODUCT_VERSION *>&1 | Tee-Object -FilePath .\ci-input\test-logs\msi-test-summary.log
+          } catch {
+            "WORKFLOW FAILURE: $($_.Exception.Message)" | Tee-Object -FilePath .\ci-input\test-logs\msi-test-summary.log -Append
+            throw
+          }
       - uses: actions/upload-artifact@v7
         if: always()
         with:
