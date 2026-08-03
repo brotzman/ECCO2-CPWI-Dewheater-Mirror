@@ -23,7 +23,7 @@ func TestRepositoryBuildAndInstallerContracts(t *testing.T) {
 		"actions/upload-artifact@v7", "actions/download-artifact@v8",
 		"go test -race ./...", "-Mode Setup", "-Mode Msi", "publish_release",
 		"GH_REPO: ${{ github.repository }}", "ECCO2-CPWI-Dew-Mirror-1.0.1-Build-Logs", "timeout-minutes", "shell: pwsh",
-		"Test-ReleaseArtifacts.ps1", "setup-test-summary.log", "msi-test-summary.log",
+		"Test-ReleaseArtifacts.ps1", "setup-test-summary.log", "msi-test-summary.log", "WORKFLOW FAILURE:",
 	} {
 		if !strings.Contains(workflow, want) {
 			t.Errorf("workflow missing %q", want)
@@ -39,7 +39,7 @@ func TestRepositoryBuildAndInstallerContracts(t *testing.T) {
 		}
 	}
 	installerTest := mustReadContract(t, "scripts/Test-Installer.ps1")
-	for _, want := range []string{"Start-menu shortcut missing", "Uninstall registration missing", "Installed document missing", "Installed icon missing", "Verify-Uninstalled", "Remove-Item $exe -Force"} {
+	for _, want := range []string{"Start-menu shortcut missing", "Uninstall registration missing", "Installed document missing", "Installed icon missing", "FAIL: $Mode installer test", "Matching uninstall registrations", "DiagnosticDirectory $logs", "Verify-Uninstalled", "Remove-Item $exe -Force"} {
 		if !strings.Contains(installerTest, want) {
 			t.Errorf("installer test contract missing %q", want)
 		}

@@ -23,6 +23,7 @@ func TestWindowsStatusWindowStartupContract(t *testing.T) {
 		"configuration is per-user":                       "LOCALAPPDATA",
 		"custom icon is loaded when available":            "loadAppIcon()",
 		"window icon is assigned explicitly":              "WM_SETICON",
+		"window starts with a safe class icon":            "defaultIcon",
 	}
 	for name, want := range checks {
 		if !strings.Contains(s, want) {
@@ -43,6 +44,10 @@ func TestWindowsStatusWindowStartupContract(t *testing.T) {
 	if strings.Contains(s, "if hwndMain == 0 {\n\t\treturn") {
 		t.Fatal("silent status-window creation failure remains")
 	}
+	customIcon := strings.Index(s, "if ico := loadAppIcon(); ico != 0")
+	if customIcon < create {
+		t.Fatal("custom icon must be loaded only after the main window was created")
+	}
 }
 
 func TestWindowsMinMaxInfoAvoidsUnsafeUintptrConversion(t *testing.T) {
@@ -54,7 +59,7 @@ func TestWindowsMinMaxInfoAvoidsUnsafeUintptrConversion(t *testing.T) {
 	if strings.Contains(s, "(*MINMAXINFO)(unsafe.Pointer(lp))") {
 		t.Fatal("WM_GETMINMAXINFO still converts lParam directly to unsafe.Pointer")
 	}
-	for _, want := range []string{"func setMinimumTrackSize", "pRtlMoveMemory.Call", "setMinimumTrackSize(lp, 960, 780)"} {
+	for _, want := range []string{"func setMinimumTrackSize", "pRtlMoveMemory.Call", "setMinimumTrackSize(lp, 900, 700)"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("safe WM_GETMINMAXINFO handling missing %q", want)
 		}

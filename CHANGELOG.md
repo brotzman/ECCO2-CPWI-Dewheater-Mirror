@@ -1,5 +1,11 @@
 # ECCO2 CPWI Dew Mirror 1.0.1 — 03.08.2026
 
+- Installer-Testabbruch nach erfolgreicher Installation analysiert: Setup und MSI installierten korrekt, der gemeinsame Fehler lag im nachgelagerten GUI-Smoke-Test.
+- Das Hauptfenster registriert seine Win32-Klasse wieder mit einem sicheren Systemicon und setzt das neue Produkticon erst nach erfolgreicher Fenstererstellung.
+- Mindestfenstergröße und Startgröße wurden für 1024×768- sowie CI-Desktops angepasst, ohne die Telemetriezeilen wieder zu verdichten.
+- Das Layout wurde nochmals kompakter und adaptiver angeordnet; „ECCO2 Telemetrie“ behält ausreichende Zeilen- und Innenabstände.
+- GUI-Smoke-Test verwendet zusätzlich den anwendungseigenen Marker `WINDOW_VISIBLE`, speichert Startup-Diagnose und versucht einen Screenshot des Fensters zu erzeugen.
+- Setup- und MSI-Testzusammenfassungen enthalten künftig die konkrete Ausnahme und den Installationszustand statt nur den nachfolgenden Cleanup-Befehl.
 - Neues App-Icon integriert und in Portable-ZIP, Setup und MSI ausgeliefert.
 - Desktop- und Startmenü-Verknüpfungen verwenden jetzt automatisch das neue Icon.
 - Installer und MSI hinterlegen das neue Produkticon auch in der Windows-Softwareliste.

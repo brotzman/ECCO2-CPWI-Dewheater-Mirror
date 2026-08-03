@@ -708,43 +708,45 @@ func move(h uintptr, x, y, wid, hei int) {
 	pMoveWindow.Call(h, uintptr(x), uintptr(y), uintptr(wid), uintptr(hei), 1)
 }
 func layout(cw, ch int) {
-	m := 22
-	if cw < 960 {
-		cw = 960
-	}
+	m := 20
 	w0 := cw - 2*m
-	titleH := 38
-	subH := 24
-	move(ctr["title"], m, 14, w0, titleH)
-	move(ctr["sub"], m, 54, w0, subH)
-	y := 88
-	buttonW := 132
+	if w0 < 840 {
+		w0 = 840
+	}
+
+	move(ctr["title"], m, 12, w0, 34)
+	move(ctr["sub"], m, 46, w0, 22)
+
+	y := 78
+	buttonW := 128
 	fieldH := 28
 	buttonH := 32
-	cfgH := 126
+	cfgH := 118
 	move(ctr["cfgGroup"], m, y, w0, cfgH)
-	move(ctr["eagleLab"], m+18, y+30, 92, fieldH)
-	move(ctr["eagle"], m+112, y+30, w0-128-buttonW-14, fieldH)
-	move(ctr["save"], m+w0-buttonW-18, y+28, buttonW, buttonH)
-	move(ctr["vcomLab"], m+18, y+72, 92, fieldH)
-	move(ctr["vcom"], m+112, y+72, 92, fieldH)
-	move(ctr["upLab"], m+218, y+72, 150, fieldH)
-	move(ctr["upcom"], m+372, y+72, 96, fieldH)
-	move(ctr["baudLab"], m+484, y+72, 46, fieldH)
-	move(ctr["baud"], m+534, y+72, 88, fieldH)
-	move(ctr["start"], m+w0-buttonW-18, y+70, buttonW, buttonH)
-	y += cfgH + 14
-	half := (w0 - 14) / 2
-	groupH := 236
+	move(ctr["eagleLab"], m+16, y+27, 92, fieldH)
+	move(ctr["eagle"], m+110, y+27, w0-126-buttonW-14, fieldH)
+	move(ctr["save"], m+w0-buttonW-16, y+25, buttonW, buttonH)
+	move(ctr["vcomLab"], m+16, y+65, 92, fieldH)
+	move(ctr["vcom"], m+110, y+65, 92, fieldH)
+	move(ctr["upLab"], m+216, y+65, 148, fieldH)
+	move(ctr["upcom"], m+366, y+65, 94, fieldH)
+	move(ctr["baudLab"], m+474, y+65, 46, fieldH)
+	move(ctr["baud"], m+522, y+65, 84, fieldH)
+	move(ctr["start"], m+w0-buttonW-16, y+63, buttonW, buttonH)
+
+	y += cfgH + 12
+	half := (w0 - 12) / 2
+	groupH := 226
 	move(ctr["eccoGroup"], m, y, half, groupH)
-	move(ctr["mirrorGroup"], m+half+14, y, half, groupH)
-	lx := m + 18
-	rowTop := y + 34
-	rowStep := 27
+	move(ctr["mirrorGroup"], m+half+12, y, half, groupH)
+
+	lx := m + 16
+	rowTop := y + 31
+	rowStep := 26
 	labelW := 142
-	valueW := half - 176
-	if valueW < 120 {
-		valueW = 120
+	valueW := half - labelW - 42
+	if valueW < 112 {
+		valueW = 112
 	}
 	labels := []string{"ambLab", "humLab", "dewLab", "t5Lab", "t6Lab", "h1Lab", "h2Lab"}
 	vals := []string{"amb", "hum", "dew", "t5", "t6", "h1", "h2"}
@@ -753,22 +755,24 @@ func layout(cw, ch int) {
 		move(ctr[labels[i]], lx, rowY, labelW, 24)
 		move(ctr[vals[i]], lx+labelW+8, rowY, valueW, 24)
 	}
-	rx := m + half + 32
-	statusW := half - 36
-	move(ctr["eagleStatus"], rx, y+36, statusW, 28)
-	move(ctr["eccoStatus"], rx, y+70, statusW, 28)
-	move(ctr["cpwiStatus"], rx, y+104, statusW, 28)
-	move(ctr["mode"], rx, y+142, statusW, 28)
-	move(ctr["stats"], rx, y+178, statusW, 42)
-	y += groupH + 14
-	move(ctr["error"], m, y, w0, 30)
-	y += 38
+
+	rx := m + half + 28
+	statusW := half - 32
+	move(ctr["eagleStatus"], rx, y+32, statusW, 27)
+	move(ctr["eccoStatus"], rx, y+64, statusW, 27)
+	move(ctr["cpwiStatus"], rx, y+96, statusW, 27)
+	move(ctr["mode"], rx, y+132, statusW, 27)
+	move(ctr["stats"], rx, y+166, statusW, 44)
+
+	y += groupH + 10
+	move(ctr["error"], m, y, w0, 28)
+	y += 34
 	logH := ch - y - m
-	if logH < 170 {
-		logH = 170
+	if logH < 150 {
+		logH = 150
 	}
 	move(ctr["logGroup"], m, y, w0, logH)
-	move(ctr["log"], m+14, y+28, w0-28, logH-44)
+	move(ctr["log"], m+14, y+27, w0-28, logH-41)
 }
 
 func buildUi() {
@@ -834,7 +838,7 @@ func setMinimumTrackSize(lParam uintptr, width, height int32) {
 func wndProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
 	switch msg {
 	case WM_GETMINMAXINFO:
-		setMinimumTrackSize(lp, 960, 780)
+		setMinimumTrackSize(lp, 900, 700)
 		return 0
 	case WM_SIZE:
 		if wp != SIZE_MINIMIZED {
@@ -916,17 +920,17 @@ func main() {
 
 	cb := syscall.NewCallback(wndProc)
 	cur, _, _ := pLoadCursorW.Call(0, IDC_ARROW)
-	ico := loadAppIcon()
+	defaultIcon, _, _ := pLoadIconW.Call(0, IDI_APPLICATION)
 	classPtr := w(className)
 	titlePtr := w(appTitle)
-	wc := WNDCLASSEXW{CbSize: uint32(unsafe.Sizeof(WNDCLASSEXW{})), Style: 3, LpfnWndProc: cb, HInstance: hinst, HIcon: ico, HCursor: cur, HbrBackground: brushWindow, LpszClassName: classPtr, HIconSm: ico}
+	wc := WNDCLASSEXW{CbSize: uint32(unsafe.Sizeof(WNDCLASSEXW{})), Style: 3, LpfnWndProc: cb, HInstance: hinst, HIcon: defaultIcon, HCursor: cur, HbrBackground: brushWindow, LpszClassName: classPtr, HIconSm: defaultIcon}
 	atom, _, registerErr := pRegisterClassExW.Call(uintptr(unsafe.Pointer(&wc)))
 	if atom == 0 {
 		showStartupError("Fensterklasse konnte nicht registriert werden", registerErr)
 		return
 	}
 
-	createdWindow, _, createErr := pCreateWindowExW.Call(0, uintptr(unsafe.Pointer(classPtr)), uintptr(unsafe.Pointer(titlePtr)), WS_OVERLAPPEDWINDOW, uintptr(CW_USEDEFAULT), uintptr(CW_USEDEFAULT), 980, 820, 0, 0, hinst, 0)
+	createdWindow, _, createErr := pCreateWindowExW.Call(0, uintptr(unsafe.Pointer(classPtr)), uintptr(unsafe.Pointer(titlePtr)), WS_OVERLAPPEDWINDOW, uintptr(CW_USEDEFAULT), uintptr(CW_USEDEFAULT), 980, 740, 0, 0, hinst, 0)
 	hwndMain = createdWindow
 	if hwndMain == 0 {
 		showStartupError("Statusfenster konnte nicht erstellt werden", createErr)
@@ -934,8 +938,10 @@ func main() {
 	}
 
 	buildUi()
-	pSendMessageW.Call(hwndMain, WM_SETICON, ICON_SMALL, ico)
-	pSendMessageW.Call(hwndMain, WM_SETICON, ICON_BIG, ico)
+	if ico := loadAppIcon(); ico != 0 {
+		pSendMessageW.Call(hwndMain, WM_SETICON, ICON_SMALL, ico)
+		pSendMessageW.Call(hwndMain, WM_SETICON, ICON_BIG, ico)
+	}
 	appendLog("Gestartet. Mirror ist sicherheitsbedingt READ ONLY.")
 	timer, _, timerErr := pSetTimer.Call(hwndMain, 1, 250, 0)
 	if timer == 0 {

@@ -49,7 +49,7 @@ function Verify-Installed {
     if (-not (Test-Path $desktopShortcut -PathType Leaf)) { throw "Desktop shortcut missing: $desktopShortcut" }
     if (-not (Test-Path $startMenuShortcut -PathType Leaf)) { throw "Start-menu shortcut missing: $startMenuShortcut" }
     if ((Get-ProductRegistrations).Count -lt 1) { throw 'Uninstall registration missing.' }
-    & (Join-Path $PSScriptRoot 'Test-GuiStartup.ps1') -Exe $exe -TimeoutSeconds 20
+    & (Join-Path $PSScriptRoot 'Test-GuiStartup.ps1') -Exe $exe -TimeoutSeconds 20 -DiagnosticDirectory $logs
 }
 function Verify-Uninstalled {
     if (Test-Path $installDir) { throw "Installation directory remains: $installDir" }
@@ -76,6 +76,17 @@ try {
     Start-Sleep -Seconds 2
     Verify-Uninstalled
     Write-Host "PASS: $Mode installer test completed."
+} catch {
+    Write-Host "FAIL: $Mode installer test: $($_.Exception.Message)"
+    Write-Host "Install directory exists: $(Test-Path $installDir)"
+    Write-Host "Desktop shortcut exists: $(Test-Path $desktopShortcut)"
+    Write-Host "Start-menu shortcut exists: $(Test-Path $startMenuShortcut)"
+    Write-Host "Matching uninstall registrations: $((Get-ProductRegistrations).Count)"
+    if (Test-Path $installDir) {
+        Get-ChildItem -LiteralPath $installDir -Force -ErrorAction SilentlyContinue |
+            ForEach-Object { Write-Host ("Installed item: {0} ({1} bytes)" -f $_.Name,$_.Length) }
+    }
+    throw
 } finally {
     $needsCleanup=(Test-Path $installDir) -or ((Get-ProductRegistrations).Count -gt 0)
     if ($needsCleanup) {
