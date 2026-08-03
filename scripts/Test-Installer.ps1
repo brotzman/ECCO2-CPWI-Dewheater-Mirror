@@ -27,13 +27,21 @@ function Invoke-Bounded([string]$File,[string]$Arguments,[int]$Timeout,[string]$
     if ($p.ExitCode -notin @(0,3010)) { throw "$Description failed with exit code $($p.ExitCode)." }
 }
 function Quote([string]$s) { '"' + $s.Replace('"','\"') + '"' }
+function Get-SafePropertyValue([object]$InputObject,[string]$PropertyName) {
+    if ($null -eq $InputObject) { return $null }
+    $property=$InputObject.PSObject.Properties[$PropertyName]
+    if ($null -eq $property) { return $null }
+    return $property.Value
+}
 function Get-ProductRegistrations {
     $paths=@(
         'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
         'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
     )
     @(Get-ItemProperty -Path $paths -ErrorAction SilentlyContinue | Where-Object {
-        $_.DisplayName -eq 'ECCO2 CPWI Dew Mirror' -and $_.DisplayVersion -eq $ProductVersion
+        $displayName=Get-SafePropertyValue $_ 'DisplayName'
+        $displayVersion=Get-SafePropertyValue $_ 'DisplayVersion'
+        $displayName -eq 'ECCO2 CPWI Dew Mirror' -and $displayVersion -eq $ProductVersion
     })
 }
 function Verify-Installed {

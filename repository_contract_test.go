@@ -39,9 +39,14 @@ func TestRepositoryBuildAndInstallerContracts(t *testing.T) {
 		}
 	}
 	installerTest := mustReadContract(t, "scripts/Test-Installer.ps1")
-	for _, want := range []string{"Start-menu shortcut missing", "Uninstall registration missing", "Installed document missing", "Installed icon missing", "FAIL: $Mode installer test", "Matching uninstall registrations", "DiagnosticDirectory $logs", "Verify-Uninstalled", "Remove-Item $exe -Force"} {
+	for _, want := range []string{"Start-menu shortcut missing", "Uninstall registration missing", "Installed document missing", "Installed icon missing", "FAIL: $Mode installer test", "Matching uninstall registrations", "DiagnosticDirectory $logs", "Verify-Uninstalled", "Remove-Item $exe -Force", "Get-SafePropertyValue", "PSObject.Properties[$PropertyName]"} {
 		if !strings.Contains(installerTest, want) {
 			t.Errorf("installer test contract missing %q", want)
+		}
+	}
+	for _, forbidden := range []string{"$_.DisplayName", "$_.DisplayVersion"} {
+		if strings.Contains(installerTest, forbidden) {
+			t.Errorf("installer registry scan must not access optional properties directly: %q", forbidden)
 		}
 	}
 	releaseTest := mustReadContract(t, "scripts/Test-ReleaseArtifacts.ps1")
