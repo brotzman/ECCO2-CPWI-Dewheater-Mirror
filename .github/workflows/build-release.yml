@@ -56,18 +56,18 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - name: Initialize build diagnostics
-        shell: powershell
+        shell: pwsh
         run: New-Item -ItemType Directory -Force -Path artifacts\test-logs | Out-Null
       - name: Validate repository
-        shell: powershell
+        shell: pwsh
         run: .\scripts\Validate-Repository.ps1 *>&1 | Tee-Object -FilePath artifacts\test-logs\repository-validation.log
       - name: Install pinned WiX tool
-        shell: powershell
+        shell: pwsh
         run: |
           dotnet tool install --global wix --version $env:WIX_VERSION
           wix --version
       - name: Build release artifacts
-        shell: powershell
+        shell: pwsh
         run: |
           try {
             .\scripts\Build-Release.ps1 `
@@ -79,7 +79,7 @@ jobs:
             throw
           }
       - name: Stage installer-test input
-        shell: powershell
+        shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path ci-input\dist,ci-input\scripts | Out-Null
           Copy-Item dist\* ci-input\dist -Recurse -Force
@@ -115,7 +115,7 @@ jobs:
           name: ECCO2-CPWI-Dew-Mirror-1.0.1-Installer-Test-Input
           path: ci-input
       - name: Test Setup installation, repair and removal
-        shell: powershell
+        shell: pwsh
         run: .\ci-input\scripts\Test-Installer.ps1 -Mode Setup -ArtifactRoot .\ci-input -ProductVersion $env:PRODUCT_VERSION
       - uses: actions/upload-artifact@v7
         if: always()
@@ -136,7 +136,7 @@ jobs:
           name: ECCO2-CPWI-Dew-Mirror-1.0.1-Installer-Test-Input
           path: ci-input
       - name: Test MSI installation, repair and removal
-        shell: powershell
+        shell: pwsh
         run: .\ci-input\scripts\Test-Installer.ps1 -Mode Msi -ArtifactRoot .\ci-input -ProductVersion $env:PRODUCT_VERSION
       - uses: actions/upload-artifact@v7
         if: always()
