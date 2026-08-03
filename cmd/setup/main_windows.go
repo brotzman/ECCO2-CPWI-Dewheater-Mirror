@@ -326,7 +326,11 @@ func install(o options) error {
 }
 
 func scheduleSelfRemoval(dir string, pid int) error {
-	script := `$ErrorActionPreference='SilentlyContinue'; for($i=0; $i -lt 300 -and (Get-Process -Id ` + strconv.Itoa(pid) + ` -ErrorAction SilentlyContinue); $i++){ Start-Sleep -Milliseconds 100 }; Start-Sleep -Milliseconds 500; Remove-Item -LiteralPath ` + psQuote(dir) + ` -Recurse -Force`
+	// The uninstaller executable lives inside the installation directory and
+	// therefore cannot remove that directory while its own process is alive.
+	// Wait for the process to exit, then retry removal to tolerate short-lived
+	// antivirus, Explorer or filesystem handles.
+	script := `$ErrorActionPreference='SilentlyContinue'; for($i=0; $i -lt 300 -and (Get-Process -Id ` + strconv.Itoa(pid) + ` -ErrorAction SilentlyContinue); $i++){ Start-Sleep -Milliseconds 100 }; for($i=0; $i -lt 120 -and (Test-Path -LiteralPath ` + psQuote(dir) + `); $i++){ Remove-Item -LiteralPath ` + psQuote(dir) + ` -Recurse -Force -ErrorAction SilentlyContinue; if(Test-Path -LiteralPath ` + psQuote(dir) + `){ Start-Sleep -Milliseconds 250 } }`
 	return powershellEncoded(script, true)
 }
 

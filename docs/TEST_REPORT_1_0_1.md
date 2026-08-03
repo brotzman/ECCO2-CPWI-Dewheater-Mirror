@@ -87,3 +87,9 @@ Die Anwendung verwendet im Go-Quellcode ausschließlich HTTP-GET-Zugriffe auf
 `/getsupply`, `/getecco` und `/getregout`. Es existiert kein aufrufbarer
 EAGLE2-Schreibendpunkt. CPWI-Schreibopcodes werden weiterhin nur beantwortet
 und protokolliert; die reale ECCO2-Heizregelung bleibt unverändert.
+
+## Installer-Testhärtung vom 03.08.2026
+
+- Registry-Ergebnisse mit null, einem oder mehreren Treffern werden unabhängig von PowerShell-Pipeline-Unwrapping sicher gezählt.
+- Setup-Deinstallation wird als asynchroner Selbstlöschvorgang behandelt und bis zu 45 Sekunden nachkontrolliert.
+- Der native Uninstaller wiederholt das Entfernen des Installationsverzeichnisses, falls kurzlebige Dateihandles den ersten Versuch blockieren.

@@ -44,6 +44,10 @@ function Get-ProductRegistrations {
         $displayName -eq 'ECCO2 CPWI Dew Mirror' -and $displayVersion -eq $ProductVersion
     })
 }
+function Get-ProductRegistrationCount {
+    $registrations=@(Get-ProductRegistrations)
+    return [int]$registrations.Count
+}
 function Verify-Installed {
     if (-not (Test-Path $exe -PathType Leaf)) { throw "Installed executable missing: $exe" }
     $expected=(Get-FileHash (Join-Path $dist 'ECCO2CPWIDewMirror.exe') -Algorithm SHA256).Hash
@@ -56,14 +60,28 @@ function Verify-Installed {
     }
     if (-not (Test-Path $desktopShortcut -PathType Leaf)) { throw "Desktop shortcut missing: $desktopShortcut" }
     if (-not (Test-Path $startMenuShortcut -PathType Leaf)) { throw "Start-menu shortcut missing: $startMenuShortcut" }
-    if ((Get-ProductRegistrations).Count -lt 1) { throw 'Uninstall registration missing.' }
+    if ((Get-ProductRegistrationCount) -lt 1) { throw 'Uninstall registration missing.' }
     & (Join-Path $PSScriptRoot 'Test-GuiStartup.ps1') -Exe $exe -TimeoutSeconds 20 -DiagnosticDirectory $logs
 }
 function Verify-Uninstalled {
     if (Test-Path $installDir) { throw "Installation directory remains: $installDir" }
     if (Test-Path $desktopShortcut) { throw "Desktop shortcut remains: $desktopShortcut" }
     if (Test-Path $startMenuShortcut) { throw "Start-menu shortcut remains: $startMenuShortcut" }
-    if ((Get-ProductRegistrations).Count -ne 0) { throw 'Uninstall registration remains.' }
+    if ((Get-ProductRegistrationCount) -ne 0) { throw 'Uninstall registration remains.' }
+}
+function Wait-Uninstalled([int]$TimeoutSeconds = 45) {
+    $deadline=[DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    do {
+        $directoryExists=Test-Path $installDir
+        $desktopExists=Test-Path $desktopShortcut
+        $startMenuExists=Test-Path $startMenuShortcut
+        $registrationCount=Get-ProductRegistrationCount
+        if (-not $directoryExists -and -not $desktopExists -and -not $startMenuExists -and $registrationCount -eq 0) {
+            return
+        }
+        Start-Sleep -Milliseconds 500
+    } while ([DateTime]::UtcNow -lt $deadline)
+    Verify-Uninstalled
 }
 try {
     if ($Mode -eq 'Setup') {
@@ -81,24 +99,23 @@ try {
         Verify-Installed
         Invoke-Bounded $msiexec ("/x " + (Quote $msi) + " /qn /norestart /L*V! " + (Quote (Join-Path $logs 'msi-uninstall.log')) + " REBOOT=ReallySuppress") 180 'MSI uninstall'
     }
-    Start-Sleep -Seconds 2
-    Verify-Uninstalled
+    Wait-Uninstalled -TimeoutSeconds 45
     Write-Host "PASS: $Mode installer test completed."
 } catch {
     Write-Host "FAIL: $Mode installer test: $($_.Exception.Message)"
     Write-Host "Install directory exists: $(Test-Path $installDir)"
     Write-Host "Desktop shortcut exists: $(Test-Path $desktopShortcut)"
     Write-Host "Start-menu shortcut exists: $(Test-Path $startMenuShortcut)"
-    Write-Host "Matching uninstall registrations: $((Get-ProductRegistrations).Count)"
+    Write-Host "Matching uninstall registrations: $(Get-ProductRegistrationCount)"
     if (Test-Path $installDir) {
         Get-ChildItem -LiteralPath $installDir -Force -ErrorAction SilentlyContinue |
             ForEach-Object { Write-Host ("Installed item: {0} ({1} bytes)" -f $_.Name,$_.Length) }
     }
     throw
 } finally {
-    $needsCleanup=(Test-Path $installDir) -or ((Get-ProductRegistrations).Count -gt 0)
+    $needsCleanup=(Test-Path $installDir) -or ((Get-ProductRegistrationCount) -gt 0)
     if ($needsCleanup) {
-        if ($Mode -eq 'Setup' -and (Test-Path $setup)) { try { Invoke-Bounded $setup '/uninstall /quiet /norestart' 90 'Cleanup setup uninstall' } catch {} }
-        if ($Mode -eq 'Msi' -and (Test-Path $msi)) { try { Invoke-Bounded $msiexec ("/x " + (Quote $msi) + " /qn /norestart REBOOT=ReallySuppress") 90 'Cleanup MSI uninstall' } catch {} }
+        if ($Mode -eq 'Setup' -and (Test-Path $setup)) { try { Invoke-Bounded $setup '/uninstall /quiet /norestart' 90 'Cleanup setup uninstall'; Wait-Uninstalled -TimeoutSeconds 45 } catch {} }
+        if ($Mode -eq 'Msi' -and (Test-Path $msi)) { try { Invoke-Bounded $msiexec ("/x " + (Quote $msi) + " /qn /norestart REBOOT=ReallySuppress") 90 'Cleanup MSI uninstall'; Wait-Uninstalled -TimeoutSeconds 45 } catch {} }
     }
 }

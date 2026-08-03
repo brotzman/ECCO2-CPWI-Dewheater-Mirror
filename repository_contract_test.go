@@ -39,12 +39,12 @@ func TestRepositoryBuildAndInstallerContracts(t *testing.T) {
 		}
 	}
 	installerTest := mustReadContract(t, "scripts/Test-Installer.ps1")
-	for _, want := range []string{"Start-menu shortcut missing", "Uninstall registration missing", "Installed document missing", "Installed icon missing", "FAIL: $Mode installer test", "Matching uninstall registrations", "DiagnosticDirectory $logs", "Verify-Uninstalled", "Remove-Item $exe -Force", "Get-SafePropertyValue", "PSObject.Properties[$PropertyName]"} {
+	for _, want := range []string{"Start-menu shortcut missing", "Uninstall registration missing", "Installed document missing", "Installed icon missing", "FAIL: $Mode installer test", "Matching uninstall registrations", "DiagnosticDirectory $logs", "Verify-Uninstalled", "Wait-Uninstalled", "Get-ProductRegistrationCount", "Remove-Item $exe -Force", "Get-SafePropertyValue", "PSObject.Properties[$PropertyName]"} {
 		if !strings.Contains(installerTest, want) {
 			t.Errorf("installer test contract missing %q", want)
 		}
 	}
-	for _, forbidden := range []string{"$_.DisplayName", "$_.DisplayVersion"} {
+	for _, forbidden := range []string{"$_.DisplayName", "$_.DisplayVersion", "(Get-ProductRegistrations).Count"} {
 		if strings.Contains(installerTest, forbidden) {
 			t.Errorf("installer registry scan must not access optional properties directly: %q", forbidden)
 		}
@@ -56,7 +56,7 @@ func TestRepositoryBuildAndInstallerContracts(t *testing.T) {
 		}
 	}
 	setup := mustReadContract(t, "cmd/setup/main_windows.go")
-	for _, want := range []string{"//go:build windows && installerpayload", "//go:embed payload/*", "IsUserAnAdmin", "-Verb RunAs", "ECCO2CPWIDewMirrorUninstall.exe", "WScript.Shell", "QuietUninstallString", "ECCO2CPWIDewMirror.ico", "$s.IconLocation", "if !admin()", "h, err := acquireMutex()", "os.Exit(1)", "taskkill.exe", "argumentClause := \"\"", "if argumentLine != \"\""} {
+	for _, want := range []string{"//go:build windows && installerpayload", "//go:embed payload/*", "IsUserAnAdmin", "-Verb RunAs", "ECCO2CPWIDewMirrorUninstall.exe", "WScript.Shell", "QuietUninstallString", "ECCO2CPWIDewMirror.ico", "$s.IconLocation", "if !admin()", "h, err := acquireMutex()", "os.Exit(1)", "taskkill.exe", "for($i=0; $i -lt 120", "Remove-Item -LiteralPath", "argumentClause := \"\"", "if argumentLine != \"\""} {
 		if !strings.Contains(setup, want) {
 			t.Errorf("native setup missing %q", want)
 		}

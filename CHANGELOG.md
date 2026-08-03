@@ -1,5 +1,9 @@
 # ECCO2 CPWI Dew Mirror 1.0.1 — 03.08.2026
 
+- Weiteren PowerShell-`StrictMode`-Fehler behoben: Einzelne Registry-Treffer werden nicht mehr über eine unsichere `.Count`-Eigenschaft ausgewertet.
+- Installer-Test verwendet nun eine feste Ganzzahlfunktion für die Anzahl passender Deinstallationsregistrierungen.
+- Nach Setup- und MSI-Deinstallation wird bis zu 45 Sekunden kontrolliert auf die vollständige Entfernung gewartet, statt nur zwei Sekunden zu pausieren.
+- Die native Setup-Deinstallation versucht die selbstlöschende Installationsmappe mehrfach zu entfernen und toleriert kurzlebige Explorer-, Antivirus- oder Dateisystemhandles.
 - Installer-Test korrigiert: Registry-Einträge ohne `DisplayName` oder `DisplayVersion` lösen unter PowerShell `StrictMode` keinen Abbruch mehr aus.
 - Die Produkterkennung liest Registry-Eigenschaften jetzt defensiv über `PSObject.Properties`.
 - Dadurch können Setup- und MSI-Tests nach erfolgreicher Installation bis zu GUI-Start, Reparatur und Deinstallation fortgesetzt werden.
