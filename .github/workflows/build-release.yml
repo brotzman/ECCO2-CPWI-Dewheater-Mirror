@@ -78,6 +78,9 @@ jobs:
             $_ | Out-String | Add-Content -Path artifacts\test-logs\build-release.log
             throw
           }
+      - name: Validate release artifacts
+        shell: pwsh
+        run: .\scripts\Test-ReleaseArtifacts.ps1 -DistRoot .\dist -ProductVersion $env:PRODUCT_VERSION *>&1 | Tee-Object -FilePath artifacts\test-logs\release-artifacts.log
       - name: Stage installer-test input
         shell: pwsh
         run: |
@@ -116,7 +119,9 @@ jobs:
           path: ci-input
       - name: Test Setup installation, repair and removal
         shell: pwsh
-        run: .\ci-input\scripts\Test-Installer.ps1 -Mode Setup -ArtifactRoot .\ci-input -ProductVersion $env:PRODUCT_VERSION
+        run: |
+          New-Item -ItemType Directory -Force -Path .\ci-input\test-logs | Out-Null
+          .\ci-input\scripts\Test-Installer.ps1 -Mode Setup -ArtifactRoot .\ci-input -ProductVersion $env:PRODUCT_VERSION *>&1 | Tee-Object -FilePath .\ci-input\test-logs\setup-test-summary.log
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -137,7 +142,9 @@ jobs:
           path: ci-input
       - name: Test MSI installation, repair and removal
         shell: pwsh
-        run: .\ci-input\scripts\Test-Installer.ps1 -Mode Msi -ArtifactRoot .\ci-input -ProductVersion $env:PRODUCT_VERSION
+        run: |
+          New-Item -ItemType Directory -Force -Path .\ci-input\test-logs | Out-Null
+          .\ci-input\scripts\Test-Installer.ps1 -Mode Msi -ArtifactRoot .\ci-input -ProductVersion $env:PRODUCT_VERSION *>&1 | Tee-Object -FilePath .\ci-input\test-logs\msi-test-summary.log
       - uses: actions/upload-artifact@v7
         if: always()
         with:
