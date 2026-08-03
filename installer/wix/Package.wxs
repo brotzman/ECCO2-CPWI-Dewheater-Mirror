@@ -1,0 +1,83 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+      Name="ECCO2 CPWI Dew Mirror"
+      Manufacturer="ECCO2 CPWI Dew Mirror Project"
+      Version="$(var.ProductVersion)"
+      UpgradeCode="9F8E1513-812C-4D29-9432-C14B43AB6384"
+      Scope="perMachine"
+      InstallerVersion="500"
+      Language="1031">
+
+    <MajorUpgrade
+        DowngradeErrorMessage="Eine neuere Version von ECCO2 CPWI Dew Mirror ist bereits installiert."
+        Schedule="afterInstallInitialize" />
+
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="ECCO2 CPWI Dew Mirror">
+        <Component Id="CmpMainExe" Guid="*" Bitness="always64">
+          <File Id="MainExe" Source="$(var.Payload)\ECCO2CPWIDewMirror.exe" KeyPath="yes" />
+        </Component>
+        <Component Id="CmpReadmeDe" Guid="*" Bitness="always64">
+          <File Id="ReadmeDe" Source="$(var.Payload)\README_DE.md" KeyPath="yes" />
+        </Component>
+        <Component Id="CmpReadmeEn" Guid="*" Bitness="always64">
+          <File Id="ReadmeEn" Source="$(var.Payload)\README.md" KeyPath="yes" />
+        </Component>
+        <Component Id="CmpChangelog" Guid="*" Bitness="always64">
+          <File Id="Changelog" Source="$(var.Payload)\CHANGELOG.md" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="CmpDesktopShortcut" Guid="*" Bitness="always64">
+        <Shortcut
+            Id="DesktopShortcut"
+            Name="ECCO2 CPWI Dew Mirror"
+            Description="ECCO2 CPWI Dew Mirror 1.0.1"
+            Target="[INSTALLFOLDER]ECCO2CPWIDewMirror.exe"
+            WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue
+            Root="HKLM"
+            Key="Software\ECCO2CPWIDewMirror"
+            Name="DesktopShortcut"
+            Type="integer"
+            Value="1"
+            KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ProgramMenuProductFolder" Name="ECCO2 CPWI Dew Mirror">
+        <Component Id="CmpStartMenuShortcut" Guid="*" Bitness="always64">
+          <Shortcut
+              Id="StartMenuShortcut"
+              Name="ECCO2 CPWI Dew Mirror"
+              Description="ECCO2 CPWI Dew Mirror 1.0.1"
+              Target="[INSTALLFOLDER]ECCO2CPWIDewMirror.exe"
+              WorkingDirectory="INSTALLFOLDER" />
+          <RemoveFolder Id="RemoveProgramMenuProductFolder" On="uninstall" />
+          <RegistryValue
+              Root="HKLM"
+              Key="Software\ECCO2CPWIDewMirror"
+              Name="StartMenuShortcut"
+              Type="integer"
+              Value="1"
+              KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="MainFeature" Title="ECCO2 CPWI Dew Mirror" Level="1">
+      <ComponentRef Id="CmpMainExe" />
+      <ComponentRef Id="CmpReadmeDe" />
+      <ComponentRef Id="CmpReadmeEn" />
+      <ComponentRef Id="CmpChangelog" />
+      <ComponentRef Id="CmpDesktopShortcut" />
+      <ComponentRef Id="CmpStartMenuShortcut" />
+    </Feature>
+  </Package>
+</Wix>
